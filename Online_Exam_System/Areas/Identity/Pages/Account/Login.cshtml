@@ -1,0 +1,93 @@
+﻿@page
+@model LoginModel
+
+@{
+    ViewData["Title"] = "Log in";
+}
+
+<h1 class="text-center text-primary mb-4">@ViewData["Title"]</h1>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 login-container">
+            <form id="loginForm" method="post" class="needs-validation" novalidate>
+                @Html.AntiForgeryToken()
+
+                <div class="text-center mb-3">
+                    <h2 class="login-heading">Welcome Back!</h2>
+                    <p class="login-subheading">Log in to access your account and manage reservations.</p>
+                </div>
+
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div class="form-floating mb-3">
+                    <input asp-for="Input.Email" class="form-control" autocomplete="username" placeholder="Email" required />
+                    <label asp-for="Input.Email">Email</label>
+                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <input asp-for="Input.Password" type="password" class="form-control" autocomplete="current-password" placeholder="Password" required />
+                    <label asp-for="Input.Password">Password</label>
+                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input asp-for="Input.RememberMe" class="form-check-input" />
+                    <label asp-for="Input.RememberMe" class="form-check-label">Remember me</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 btn-lg login-btn">Log in</button>
+
+                <div class="text-center mt-3">
+                    <a asp-page="./ForgotPassword" class="link-secondary">Forgot your password?</a>
+                    <br />
+                    <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl" class="link-secondary">Don't have an account? Register</a>
+                </div>
+            </form>
+
+            <div class="text-center mt-4">
+                <hr />
+                <h3 class="mb-3">Or log in with another service</h3>
+                @{
+                    if ((Model.ExternalLogins?.Count ?? 0) == 0)
+                    {
+                        <p>
+                            There are no external authentication services configured. See this <a href="https://go.microsoft.com/fwlink/?LinkID=532715">
+                                article
+                                about setting up this ASP.NET application to support logging in via external services
+                            </a>.
+                        </p>
+                    }
+                    else
+                    {
+                        <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-flex flex-column align-items-center">
+                            <div>
+                                @foreach (var provider in Model.ExternalLogins!)
+                                {
+                                    <button type="submit" class="btn btn-outline-secondary btn-lg mt-2" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">
+                                        <i class="fa-brands fa-google me-2"></i> @provider.DisplayName
+                                    </button>
+                                }
+                            </div>
+                        </form>
+                    }
+                }
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <text>toastr.error('@Model.ErrorMessage');</text>
+        }
+        });
+    </script>
+}

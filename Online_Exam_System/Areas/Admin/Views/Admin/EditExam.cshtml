@@ -1,0 +1,50 @@
+﻿@model Models.Models.Exam
+@{
+    ViewData["Title"] = "Edit Exam";
+}
+
+<div class="container mt-4">
+    <h2>Edit Exam</h2>
+
+    <form asp-action="EditExam" method="post" id="editExamForm">
+        <input type="hidden" asp-for="Id" />
+
+        <div class="mb-3">
+            <label asp-for="Title" class="form-label"></label>
+            <input asp-for="Title" class="form-control" required />
+            <div class="invalid-feedback">Please provide a title.</div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label"></label>
+            <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="DurationInMinutes" class="form-label"></label>
+            <input asp-for="DurationInMinutes" class="form-control" min="1" required />
+            <div class="invalid-feedback">Please provide a valid duration.</div>
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <a href="@Url.Action("GetAllExams")" class="btn btn-secondary">Back to List</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Form validation
+            $('#editExamForm').submit(function(e) {
+                const form = this;
+                if (!form.checkValidity()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                $(form).addClass('was-validated');
+            });
+        });
+    </script>
+}

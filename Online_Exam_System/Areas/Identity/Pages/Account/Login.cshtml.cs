@@ -67,6 +67,7 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
             /// </summary>
             [Required]
             [EmailAddress]
+            [DataType(DataType.EmailAddress)]
             public string Email { get; set; }
 
             /// <summary>

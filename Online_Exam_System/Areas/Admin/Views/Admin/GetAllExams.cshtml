@@ -3,50 +3,56 @@
 @{
     ViewData["Title"] = "All Exams";
 }
+@{
+    Layout = "_Layout";
+}
 
-<style>
-    /* Exam Management Styles */
-    .exam-management-container {
-        padding: 20px;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
 
-    .exam-table {
-        margin-top: 20px;
-    }
-
-        .exam-table th {
-            background-color: #343a40;
-            color: white;
-            font-weight: 500;
+@section Styles {
+    <style>
+        /* Exam Management Styles */
+        .exam-management-container {
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
-    .action-buttons .btn {
-        margin-right: 5px;
-        margin-bottom: 5px;
-    }
+        .exam-table {
+            margin-top: 20px;
+        }
 
-    /* Modal Styles */
-    .exam-modal .modal-header {
-        background-color: #343a40;
-        color: white;
-    }
+            .exam-table th {
+                background-color: #343a40;
+                color: white;
+                font-weight: 500;
+            }
 
-    .exam-modal .modal-footer {
-        background-color: #f8f9fa;
-    }
+        .action-buttons .btn {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
 
-    /* Form Validation */
-    .was-validated .form-control:invalid {
-        border-color: #dc3545;
-    }
+        /* Modal Styles */
+        .exam-modal .modal-header {
+            background-color: #343a40;
+            color: white;
+        }
 
-    .was-validated .form-control:valid {
-        border-color: #28a745;
-    }
-</style>
+        .exam-modal .modal-footer {
+            background-color: #f8f9fa;
+        }
+
+        /* Form Validation */
+        .was-validated .form-control:invalid {
+            border-color: #dc3545;
+        }
+
+        .was-validated .form-control:valid {
+            border-color: #28a745;
+        }
+    </style>
+}
 
 <div class="container mt-4">
     <h2>Exam Management</h2>
@@ -102,20 +108,24 @@
                 <h5 class="modal-title" id="createExamModalLabel">Create New Exam</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            <!-- Create Exam Form -->
             <form id="createExamForm" asp-action="CreateExam">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                @Html.AntiForgeryToken()
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="Title" class="form-label">Title</label>
-                        <input type="text" class="form-control" id="Title" name="Title" required>
+                        <input name="Title" class="form-control" required />
                         <div class="invalid-feedback">Please provide a title.</div>
                     </div>
                     <div class="mb-3">
                         <label for="Description" class="form-label">Description</label>
-                        <textarea class="form-control" id="Description" name="Description" rows="3"></textarea>
+                        <input name="Description" class="form-control" required />
                     </div>
                     <div class="mb-3">
                         <label for="DurationInMinutes" class="form-label">Duration (minutes)</label>
-                        <input type="number" class="form-control" id="DurationInMinutes" name="DurationInMinutes" min="1" value="30" required>
+                        <input name="DurationInMinutes" class="form-control" required />
                         <div class="invalid-feedback">Please provide a valid duration.</div>
                     </div>
                 </div>
@@ -124,6 +134,7 @@
                     <button type="submit" class="btn btn-primary">Create Exam</button>
                 </div>
             </form>
+
         </div>
     </div>
 </div>
@@ -147,90 +158,25 @@
     </div>
 </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Delete Exam Confirmation
-        let examIdToDelete = null;
-        const deleteButtons = document.querySelectorAll('.delete-exam');
-        const confirmDeleteBtn = document.getElementById('confirmDeleteExam');
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteExamModal'));
-
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                examIdToDelete = this.dataset.examId;
-                deleteModal.show();
-            });
-        });
-
-        confirmDeleteBtn.addEventListener('click', function() {
-            if (examIdToDelete) {
-                deleteExam(examIdToDelete);
-                deleteModal.hide();
-            }
-        });
-
-        // Create Exam Form Validation
-        const createExamForm = document.getElementById('createExamForm');
-        if (createExamForm) {
-            createExamForm.addEventListener('submit', function(event) {
-                if (!this.checkValidity()) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-                this.classList.add('was-validated');
-            }, false);
-        }
-
-        // Initialize DataTable if needed
-        initExamDataTable();
-    });
-
-    function deleteExam(examId) {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-
-        fetch('@Url.Action("DeleteExam")', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'RequestVerificationToken': token
-            },
-            body: JSON.stringify({ id: examId })
-        })
-        .then(response => {
-            if (response.ok) {
-                location.reload();
-            } else {
-                throw new Error('Failed to delete exam');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error deleting exam: ' + error.message);
-        });
-    }
-
-    function initExamDataTable() {
-        if (typeof $ !== 'undefined' && $.fn.DataTable && document.getElementById('examsTable')) {
-            $('#examsTable').DataTable({
-                responsive: true,
-                columnDefs: [
-                    { orderable: false, targets: [4] } // Make actions column non-sortable
-                ],
-                language: {
-                    search: "_INPUT_",
-                    searchPlaceholder: "Search exams...",
-                }
-            });
-        }
-    }
-</script>
-
 @section Scripts {
     <script>
         $(document).ready(function() {
-            // Delete exam confirmation
-            let examIdToDelete = null;
+            // Initialize DataTable
+            if ($.fn.DataTable) {
+                $('#examsTable').DataTable({
+                    responsive: true,
+                    columnDefs: [
+                        { orderable: false, targets: [4] }
+                    ],
+                    language: {
+                        search: "_INPUT_",
+                        searchPlaceholder: "Search exams...",
+                    }
+                });
+            }
 
+            // Delete Exam Confirmation
+            let examIdToDelete = null;
             $('.delete-exam').click(function() {
                 examIdToDelete = $(this).data('exam-id');
                 $('#deleteExamModal').modal('show');
@@ -249,24 +195,50 @@
                             location.reload();
                         },
                         error: function(xhr) {
-                            alert('Error deleting exam: ' + xhr.responseText);
+                            toastr.error('Error deleting exam: ' + xhr.responseText);
                         }
                     });
                 }
                 $('#deleteExamModal').modal('hide');
             });
 
-            // Form validation for create exam
-            $('#createExamForm').submit(function(e) {
-                const form = this;
+            // Create Exam Form Submission - FIXED VERSION
+            $('#createExamForm').on('submit', function(e) {
                 e.preventDefault();
+                var form = $(this);
 
-                if (form.checkValidity()) {
-                    form.submit();
-                } else {
-                    form.classList.add('was-validated');
+                if (!form[0].checkValidity()) {
+                    form.addClass('was-validated');
+                    return;
                 }
+
+                $.ajax({
+                    url: form.attr('action'),
+                    type: 'POST',
+                    data: form.serialize(),
+                    headers: {
+                        'RequestVerificationToken': form.find('input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function(response) {
+                        if (response.redirectUrl) {
+                            window.location.href = response.redirectUrl;
+                        } else {
+                            window.location.reload();
+                        }
+                    },
+                    error: function(xhr) {
+                        if (xhr.responseJSON && xhr.responseJSON.errors) {
+                            // Display validation errors
+                            $.each(xhr.responseJSON.errors, function(key, value) {
+                                toastr.error(value);
+                            });
+                        } else {
+                            toastr.error('Error creating exam: ' + xhr.responseText);
+                        }
+                    }
+                });
             });
         });
     </script>
+}
 }

@@ -45,7 +45,6 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 return View(new List<Exam>());
             }
         }
-
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateExam(Exam exam)
@@ -58,7 +57,8 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 }
 
                 await _examService.CreateAsync(exam);
-                return RedirectToAction("GetAllExams");
+
+                return Json(new { redirectUrl = Url.Action("GetAllExams") });
             }
             catch (Exception ex)
             {
@@ -67,6 +67,8 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 return BadRequest(ModelState);
             }
         }
+
+
 
         public async Task<IActionResult> EditExam(int id)
         {
@@ -416,23 +418,26 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    query = query.Where(u => u.Email.Contains(search) || u.UserName.Contains(search));
+                    query = query.Where(u => u.Email.Contains(search) || u.FullName.Contains(search));
                 }
 
                 var totalUsers = await query.CountAsync();
 
+                // First get the user data without roles
                 var users = await query
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                var result = new List<object>();
+                // Then get roles for each user
+                var userViewModels = new List<dynamic>();
                 foreach (var user in users)
                 {
                     var roles = await _userManager.GetRolesAsync(user);
-                    result.Add(new
+                    userViewModels.Add(new
                     {
                         user.Id,
+                        user.FullName,
                         user.UserName,
                         user.Email,
                         Roles = roles
@@ -444,7 +449,7 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 ViewBag.PageSize = pageSize;
                 ViewBag.TotalCount = totalUsers;
 
-                return View(result);
+                return View(userViewModels);
             }
             catch (Exception ex)
             {
@@ -453,7 +458,6 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 return View(new List<object>());
             }
         }
-
         public async Task<IActionResult> UserDetails(string id)
         {
             try
@@ -470,6 +474,8 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 {
                     user.Id,
                     user.Email,
+                    user.UserName,
+                    user.FullName,
                     Roles = roles
                 };
                 return View(result);

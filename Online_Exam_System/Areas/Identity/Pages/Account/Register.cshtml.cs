@@ -145,8 +145,10 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
                 var user = CreateUser();
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-                //await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+               // await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
                 user.FullName = Input.FullName;
+                user.Email = Input.Email;
+                user.UserName = Input.Email;
 
                 var result = await _userManager.CreateAsync(user, Input.Password);
 
@@ -191,7 +193,7 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
             }
 
             // If we got this far, something failed, redisplay form
-            return Page();
+            return Redirect("~/Identity/Account/Login");
         }
 
         private ApplicationUser CreateUser()

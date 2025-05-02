@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,10 +15,12 @@ namespace Models.Models
         public double Score { get; set; }
         public bool Passed { get; set; }
         public DateTime TakenAt { get; set; }
-
-        public ApplicationUser User { get; set; }
-        public Exam Exam { get; set; }
-        public ICollection<UserAnswer> UserAnswers { get; set; }
+        [ValidateNever]
+        public ApplicationUser? User { get; set; }
+        [ValidateNever]
+        public Exam? Exam { get; set; }
+        [ValidateNever]
+        public ICollection<UserAnswer>? UserAnswers { get; set; }
     }
 
 }

@@ -26,6 +26,7 @@
         @Html.AntiForgeryToken()
         <input type="hidden" name="examId" value="@examId" />
         <input type="hidden" name="userId" value="@userId" />
+        <input type="hidden" id="questionAnswers" name="questionAnswers" />
 
         <div class="questions-container">
             @for (int i = 0; i < Model.Count; i++)
@@ -347,7 +348,7 @@
                 const seconds = duration % 60;
                 timerElement.text(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
 
-                if (duration <= 300) {
+                if (duration <= 300) {  // 5 minutes remaining
                     timerElement.parent().addClass('time-warning');
                 }
 
@@ -385,56 +386,50 @@
                 return isValid;
             }
 
-                    function submitExam() {
-            clearInterval(timerInterval);
+                     function submitExam() {
+                clearInterval(timerInterval);
+                $('input').prop('disabled', true);
+                const submitBtn = $('#submitExam');
+                submitBtn.html('<span class="spinner-border spinner-border-sm"></span> Submitting...')
+                       .prop('disabled', true);
 
-            const form = $('#examForm');
-            const formData = new FormData(form[0]); // Use FormData for better handling
-            const submitBtn = $('#submitExam');
+                // 1. جمع الإجابات بشكل صحيح
+                const answers = {};
+                $('input[type="radio"]:checked').each(function() {
+                    const name = $(this).attr('name');
+                    const questionId = name.match(/\[(\d+)\]/)[1];
+                    answers[questionId] = parseInt($(this).val());
+                });
 
-            submitBtn.html('<span class="spinner-border spinner-border-sm"></span> Submitting...')
-                   .prop('disabled', true);
+                // 2. تحضير البيانات كما يتوقعها الخادم
+                const formData = new FormData();
+                formData.append('examId', '@examId');
+                formData.append('userId', '@userId'); // إرسال كـ string
+                formData.append('questionAnswers', JSON.stringify(answers));
 
-            // Get all radio button values
-            const answers = {};
-            $('input[type="radio"]:checked').each(function() {
-                const name = $(this).attr('name');
-                const value = $(this).val();
-                const questionId = name.match(/\[(\d+)\]/)[1];
-                answers[questionId] = value;
-            });
-
-            // Add answers to form data
-            formData.append('questionAnswers', JSON.stringify(answers));
-
-            fetch(form.attr('action'), {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
-                },
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.redirectUrl) {
-                    window.location.href = data.redirectUrl;
-                } else {
-                    showAlert('Exam submitted successfully!', 'success');
-                    setTimeout(() => window.location.reload(), 2000);
-                }
-            })
-            .catch(error => {
-                console.error("Submission error:", error);
-                showAlert('An error occurred while submitting the exam.', 'danger');
-                submitBtn.html('Submit Exam').prop('disabled', false);
-            });
-        }
-
+                // 3. إرسال البيانات كـ multipart/form-data
+                $.ajax({
+                    url: $('#examForm').attr('action'),
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function(response) {
+                        if (response.redirectUrl) {
+                            window.location.href = response.redirectUrl;
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Error:', xhr.responseText);
+                        showAlert('Error submitting exam: ' + (xhr.responseJSON?.message || xhr.statusText), 'danger');
+                        $('input').prop('disabled', false);
+                        submitBtn.html('Submit Exam').prop('disabled', false);
+                    }
+                });
+            }
             function showAlert(message, type) {
                 const alert = $(`
                     <div class="alert alert-${type} alert-dismissible fade show" role="alert">

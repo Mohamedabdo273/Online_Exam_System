@@ -47,6 +47,11 @@ namespace YourNamespace.Areas.Exam.Controllers
         // GET: Exam/Exam/TakeExam/5
         public async Task<IActionResult> TakeExam(int id)
         {
+            if (await _userExamService.HasUserTakenExam(User.Identity.Name, id))
+            {
+                TempData["ErrorMessage"] = "You have already taken this exam.";
+                return RedirectToAction(nameof(Index));
+            }
             var exam = await _examService.GetByIdAsync(id);
             if (exam == null)
             {
@@ -98,6 +103,7 @@ namespace YourNamespace.Areas.Exam.Controllers
         {
             try
             {
+                
                 // Validate inputs
                 if (examId <= 0 || string.IsNullOrWhiteSpace(userId))
                 {
@@ -211,18 +217,21 @@ namespace YourNamespace.Areas.Exam.Controllers
 
             return (correctCount, answers);
         }
-        // GET: Exam/Exam/ExamResult
-        public IActionResult ExamResult(string examTitle, int totalQuestions,
-            int correctAnswers, double score, bool passed, int examId)
+        public async Task<IActionResult> ExamResult(int examId)
         {
-            ViewBag.ExamTitle = examTitle;
-            ViewBag.TotalQuestions = totalQuestions;
-            ViewBag.CorrectAnswers = correctAnswers;
-            ViewBag.Score = score;
-            ViewBag.Passed = passed;
-            ViewBag.ExamId = examId;
+            var userId = User.Identity.Name;
 
-            return View();
+            // Get the most recent attempt
+            var userExam = (await _userExamService.GetAllAsync())
+                .Where(ue => ue.UserId == userId && ue.ExamId == examId);
+
+            if (userExam == null)
+            {
+                ViewBag.ErrorMessage = "No exam results found. Please complete the exam first.";
+                return View("Error");
+            }
+
+            return View(userExam);
         }
 
         // GET: Exam/Exam/UserResults

@@ -42,10 +42,33 @@ namespace infrastructure.Services
 
         public async Task UpdateAsync(Question question)
         {
-            _unitOfWork.QuestionRepository.Edit(question);
-            await _unitOfWork.CompleteAsync();
-        }
+            // Get the existing question with its choices
+            var existingQuestion = await _unitOfWork.QuestionRepository
+                .GetOneAsync([ e => e.Choices],
+                           expression: e => e.Id == question.Id);
 
+            if (existingQuestion == null)
+            {
+                throw new Exception("Question not found");
+            }
+            existingQuestion.Title = question.Title;
+            var choicesToRemove = existingQuestion.Choices.ToList();
+            for (int i = 0; i < choicesToRemove.Count; i++)
+            {
+                _unitOfWork.ChoiceRepository.Delete(choicesToRemove[i]);
+            }
+            foreach (var choice in question.Choices)
+            {
+                existingQuestion.Choices.Add(new Choice
+                {
+                    Text = choice.Text,
+                    IsCorrect = choice.IsCorrect,
+                    QuestionId = question.Id
+                });
+            }
+
+            await _unitOfWork.CompleteAsync(); 
+        }
         public async Task DeleteAsync(int id)
         {
             var question = await GetByIdAsync(id);

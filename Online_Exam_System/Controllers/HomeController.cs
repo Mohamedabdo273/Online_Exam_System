@@ -15,7 +15,14 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
-        return View();
+        if (User.IsInRole("Admin"))
+        {
+            return RedirectToAction("GetAllExams", "Admin", new { area = "Admin" });
+        }
+        else
+        {
+            return RedirectToAction("Index", "Exam", new { area = "Exam" });
+        }
     }
 
     public IActionResult Privacy()

@@ -7,14 +7,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using infrastructure.Services.Iservices;
 using Models.Models;
+using NuGet.ContentModel;
+using static System.Formats.Asn1.AsnWriter;
+using System.Text.Json;
 
 namespace YourNamespace.Areas.Exam.Controllers
 {
     [Area("Exam")]
-    [Authorize]
+    [Authorize(Roles ="User")]
     public class ExamController : Controller
     {
-        private readonly IExamService _examService;
+        private readonly IExamService _examService;    
         private readonly IQuestionService _questionService;
         private readonly IChoiceService _choiceService;
         private readonly IUserExamService _userExamService;
@@ -86,95 +89,128 @@ namespace YourNamespace.Areas.Exam.Controllers
                 return StatusCode(500, "Error loading exams data");
             }
         }
-        // POST: Exam/Exam/SubmitExam
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SubmitExam(int examId, string userId,
-    [FromForm] Dictionary<int, int> questionAnswers)
+        public async Task<IActionResult> SubmitExam(
+     [FromForm] int examId,
+     [FromForm] string userId,
+     [FromForm] string questionAnswers)
         {
             try
             {
-                if (questionAnswers == null || !questionAnswers.Any())
+                // Validate inputs
+                if (examId <= 0 || string.IsNullOrWhiteSpace(userId))
                 {
-                    TempData["ErrorMessage"] = "No answers submitted.";
-                    return RedirectToAction(nameof(TakeExam), new { id = examId });
+                    return BadRequest(new { message = "Invalid exam or user information" });
                 }
 
+                // Deserialize answers
+                var answers = JsonSerializer.Deserialize<Dictionary<int, int>>(questionAnswers)
+                    ?? new Dictionary<int, int>();
+
+                if (!answers.Any())
+                {
+                    return BadRequest(new { message = "No answers submitted" });
+                }
+
+                // Get exam with questions and choices
                 var exam = await _examService.GetByIdAsync(examId);
                 if (exam == null)
                 {
-                    return NotFound("Exam not found.");
+                    return NotFound(new { message = "Exam not found" });
                 }
 
+                // Verify user
                 if (User.Identity?.Name != userId)
                 {
-                    return Unauthorized("User mismatch.");
+                    return Unauthorized(new { message = "User mismatch" });
                 }
 
-                // Check if user already took this exam
-                var existingExam = (await _userExamService.GetAllAsync())
-                    .FirstOrDefault(ue => ue.UserId == userId && ue.ExamId == examId);
-                if (existingExam != null)
+                // Check for existing attempt
+                if (await _userExamService.HasUserTakenExam(userId, examId))
                 {
-                    TempData["ErrorMessage"] = "You have already taken this exam.";
-                    return RedirectToAction(nameof(Index));
+                    return Conflict(new { message = "You have already taken this exam" });
                 }
 
+                // Process answers
+                var (correctAnswers, userAnswers) = ProcessAnswers(answers, exam.Questions);
+
+                // Calculate score
+                var totalQuestions = exam.Questions.Count;
+                var percentageScore = totalQuestions > 0
+                    ? Math.Round((correctAnswers / (double)totalQuestions) * 100, 2)
+                    : 0;
+
+                // Create user exam record
                 var userExam = new UserExam
                 {
                     ExamId = examId,
                     UserId = userId,
                     TakenAt = DateTime.UtcNow,
-                    UserAnswers = new List<UserAnswer>()
+                    Score = percentageScore,
+                    Passed = percentageScore >= 60,
+                    UserAnswers = userAnswers
                 };
-
-                int correctAnswers = 0;
-                var totalQuestions = exam.Questions?.Count ?? 0;
-
-                foreach (var answer in questionAnswers)
-                {
-                    var question = await _questionService.GetByIdAsync(answer.Key);
-                    if (question == null) continue;
-
-                    var correctChoice = question.Choices?.FirstOrDefault(c => c.IsCorrect);
-                    bool isCorrect = correctChoice != null && answer.Value == correctChoice.Id;
-
-                    if (isCorrect) correctAnswers++;
-
-                    userExam.UserAnswers.Add(new UserAnswer
-                    {
-                        QuestionId = answer.Key,
-                        SelectedChoiceId = answer.Value,
-                        IsCorrect = isCorrect
-                    });
-                }
-
-                double percentageScore = totalQuestions > 0 ? (correctAnswers / (double)totalQuestions) * 100 : 0;
-                userExam.Score = percentageScore;
-                userExam.Passed = percentageScore >= 60;
 
                 await _userExamService.CreateAsync(userExam);
 
-                // Prepare result data for the view
-                var resultData = new
+                return Json(new
                 {
-                    ExamTitle = exam.Title,
-                    TotalQuestions = totalQuestions,
-                    CorrectAnswers = correctAnswers,
-                    Score = percentageScore,
-                    Passed = userExam.Passed,
-                    ExamId = exam.Id
-                };
-
-                return Json(new { redirectUrl = Url.Action(nameof(ExamResult), resultData) });
+                    redirectUrl = Url.Action(
+        nameof(ExamResult),
+        new
+        {
+            examTitle = exam.Title,
+            totalQuestions = totalQuestions,
+            correctAnswers = correctAnswers,
+            score = percentageScore,
+            passed = userExam.Passed,
+            examId = exam.Id
+        }),
+                    status = "success"
+                });
+            }
+            catch (JsonException jsonEx)
+            {
+                return BadRequest(new { message = "Invalid answer format" });
             }
             catch (Exception ex)
             {
-           
-                return StatusCode(500, new { message = "An unexpected error occurred while processing your exam." });
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while processing your exam",
+                    detailedError = ex.Message
+                });
             }
         }
 
+        private (int correctAnswers, List<UserAnswer> userAnswers) ProcessAnswers(
+            Dictionary<int, int> submittedAnswers,
+            ICollection<Question> questions)
+        {
+            int correctCount = 0;
+            var answers = new List<UserAnswer>();
+
+            foreach (var question in questions)
+            {
+                if (!submittedAnswers.TryGetValue(question.Id, out var selectedChoiceId))
+                    continue;
+
+                var isCorrect = question.Choices?
+                    .Any(c => c.Id == selectedChoiceId && c.IsCorrect) ?? false;
+
+                if (isCorrect) correctCount++;
+
+                answers.Add(new UserAnswer
+                {
+                    QuestionId = question.Id,
+                    SelectedChoiceId = selectedChoiceId,
+                    IsCorrect = isCorrect
+                });
+            }
+
+            return (correctCount, answers);
+        }
         // GET: Exam/Exam/ExamResult
         public IActionResult ExamResult(string examTitle, int totalQuestions,
             int correctAnswers, double score, bool passed, int examId)

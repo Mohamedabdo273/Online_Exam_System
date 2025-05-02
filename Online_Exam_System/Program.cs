@@ -47,6 +47,13 @@ builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IUserExamService, UserExamService>();
 builder.Services.AddScoped<IUserAnswerService, UserAnswerService>();
 
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminPolicy", policy =>
+        policy.RequireRole("Admin"));
+    options.AddPolicy("UserPolicy", policy =>
+        policy.RequireRole("User"));
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -66,9 +73,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages(); // Required for Identity UI
-
-app.MapGet("/", () => Results.Redirect("/Identity/Account/Login"));
-
 app.MapControllerRoute(
     name: "areas",
     pattern: "{area:exists}/{controller=Home}/{action=Index}/{id?}");
@@ -76,4 +80,5 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
 app.Run();

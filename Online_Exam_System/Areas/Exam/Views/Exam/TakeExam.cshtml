@@ -295,62 +295,59 @@
                 padding: 0.75rem;
             }
         }
+
+        .unanswered {
+            border-left: 4px solid #dc3545 !important;
+            animation: pulseWarning 1.5s infinite;
+        }
+
+        @@keyframes pulseWarning {
+            0% {
+                border-left-color: #dc3545;
+            }
+
+            50% {
+                border-left-color: #ffc107;
+            }
+
+            100% {
+                border-left-color: #dc3545;
+            }
+        }
+
+        .time-warning {
+            animation: pulseDanger 1s infinite;
+        }
+
+        @@keyframes pulseDanger {
+            0% {
+                background-color: #dc3545;
+            }
+
+            50% {
+                background-color: #fd7e14;
+            }
+
+            100% {
+                background-color: #dc3545;
+            }
+        }
     </style>
 }
-
 @section Scripts {
     <script>
-        function submitExam() {
-            clearInterval(timerInterval);
-
-            const form = $('#examForm');
-            const formData = form.serialize();
-
-            // Show loading state
-            $('#submitExam').html('<span class="spinner-border spinner-border-sm" role="status"></span> Submitting...').prop('disabled', true);
-
-            $.ajax({
-                url: form.attr('action'),
-                type: 'POST',
-                data: formData,
-                success: function(response) {
-                    if (response.redirectUrl) {
-                        window.location.href = response.redirectUrl;
-                    }
-                },
-                error: function(xhr, status, error) {
-                    // More detailed error message
-                    let errorMsg = 'An error occurred while submitting the exam.';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMsg = xhr.responseJSON.message;
-                    }
-
-                    // Show error message
-                    const errorAlert = `
-                        <div class="alert alert-danger alert-dismissible fade show">
-                            ${errorMsg}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    `;
-                    $('.exam-container').prepend(errorAlert);
-
-                    // Reset button
-                    $('#submitExam').html('Submit Exam').prop('disabled', false);
-                }
-            });
-        }
         $(document).ready(function() {
-            // Timer functionality
-            let duration = @duration * 60; // Convert minutes to seconds
+            // Timer initialization
+            let duration = @duration * 60;
             const timerElement = $('#timer');
+            let timerInterval = setInterval(updateTimer, 1000);
 
             function updateTimer() {
                 const minutes = Math.floor(duration / 60);
                 const seconds = duration % 60;
                 timerElement.text(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
 
-                // Add time warning when 5 minutes remain
-                if (duration <= 300 && !timerElement.parent().hasClass('time-warning')) {
+                if (duration <= 300) {
                     timerElement.parent().addClass('time-warning');
                 }
 
@@ -362,43 +359,103 @@
                 }
             }
 
-            const timerInterval = setInterval(updateTimer, 1000);
-
-            // Form submission with AJAX
+            // Form submission handler
             $('#examForm').on('submit', function(e) {
                 e.preventDefault();
+
+                if (!validateForm()) {
+                    showAlert('Please answer all questions before submitting.', 'danger');
+                    return;
+                }
+
                 submitExam();
             });
 
-            function submitExam() {
-                clearInterval(timerInterval);
-
-                const form = $('#examForm');
-                const formData = form.serialize();
-
-                $.ajax({
-                    url: form.attr('action'),
-                    type: 'POST',
-                    data: formData,
-                    success: function(response) {
-                        if (response.redirectUrl) {
-                            window.location.href = response.redirectUrl;
-                        }
-                    },
-                    error: function(xhr) {
-                        alert('An error occurred while submitting the exam.');
+            function validateForm() {
+                let isValid = true;
+                $('.question-card').each(function() {
+                    const questionId = $(this).data('question-id');
+                    if (!$(`input[name="questionAnswers[${questionId}]"]:checked`).length) {
+                        isValid = false;
+                        $(this).addClass('unanswered');
+                    } else {
+                        $(this).removeClass('unanswered');
                     }
                 });
+                return isValid;
             }
 
-            // Prevent navigating away during exam
-            window.addEventListener('beforeunload', function(e) {
-                if (duration > 0) {
-                    e.preventDefault();
-                    e.returnValue = 'You have an ongoing exam. Are you sure you want to leave?';
-                    return e.returnValue;
-                }
+                    function submitExam() {
+            clearInterval(timerInterval);
+
+            const form = $('#examForm');
+            const formData = new FormData(form[0]); // Use FormData for better handling
+            const submitBtn = $('#submitExam');
+
+            submitBtn.html('<span class="spinner-border spinner-border-sm"></span> Submitting...')
+                   .prop('disabled', true);
+
+            // Get all radio button values
+            const answers = {};
+            $('input[type="radio"]:checked').each(function() {
+                const name = $(this).attr('name');
+                const value = $(this).val();
+                const questionId = name.match(/\[(\d+)\]/)[1];
+                answers[questionId] = value;
             });
+
+            // Add answers to form data
+            formData.append('questionAnswers', JSON.stringify(answers));
+
+            fetch(form.attr('action'), {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                },
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.redirectUrl) {
+                    window.location.href = data.redirectUrl;
+                } else {
+                    showAlert('Exam submitted successfully!', 'success');
+                    setTimeout(() => window.location.reload(), 2000);
+                }
+            })
+            .catch(error => {
+                console.error("Submission error:", error);
+                showAlert('An error occurred while submitting the exam.', 'danger');
+                submitBtn.html('Submit Exam').prop('disabled', false);
+            });
+        }
+
+            function showAlert(message, type) {
+                const alert = $(`
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `);
+
+                $('.exam-container').prepend(alert);
+
+                setTimeout(() => {
+                    alert.alert('close');
+                }, 5000);
+            }
+
+            // Prevent navigation during exam
+            window.onbeforeunload = function() {
+                if (duration > 0) {
+                    return 'You have an ongoing exam. Are you sure you want to leave?';
+                }
+            };
         });
     </script>
 }

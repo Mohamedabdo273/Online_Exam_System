@@ -39,7 +39,12 @@ namespace infrastructure.Services
             _unitOfWork.UserExamRepository.Edit(userExam);
             await _unitOfWork.CompleteAsync();
         }
-
+        public async Task<bool> HasUserTakenExam(string userId, int examId)
+        {
+            var exam = await _unitOfWork.UserExamRepository.GetAsync(
+                expression: e => e.UserId == userId && e.ExamId == examId);
+            return exam != null;
+        }
         public async Task DeleteAsync(int id)
         {
             var userExam = await GetByIdAsync(id);

@@ -81,9 +81,7 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 return View(exam);
             }
         }
-
-
-
+        [HttpGet]
         public async Task<IActionResult> EditExam(int id)
         {
             try
@@ -91,40 +89,68 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 var exam = await _examService.GetByIdAsync(id);
                 if (exam == null)
                 {
-                    ModelState.AddModelError("", "Exam not found.");
-                    return NotFound();
+                    TempData["ErrorMessage"] = "Exam not found.";
+                    return RedirectToAction("GetAllExams");
                 }
                 return View(exam);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting exam for edit");
-                ModelState.AddModelError("", "An error occurred while retrieving the exam.");
-                return NotFound();
+                TempData["ErrorMessage"] = "An error occurred while retrieving the exam.";
+                return RedirectToAction("GetAllExams");
             }
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditExam(Exam exam)
+        public async Task<IActionResult> EditExam(int id, Exam exam)
         {
             try
             {
-                if (!ModelState.IsValid)
+                if (id != exam.Id)
                 {
-                    return BadRequest(ModelState);
+                    TempData["ErrorMessage"] = "Exam ID mismatch.";
+                    return RedirectToAction("GetAllExams");
                 }
 
-                await _examService.UpdateAsync(exam);
+                if (!ModelState.IsValid)
+                {
+                    return View(exam);
+                }
+
+                var existingExam = await _examService.GetByIdAsync(id);
+                if (existingExam == null)
+                {
+                    TempData["ErrorMessage"] = "Exam not found.";
+                    return RedirectToAction("GetAllExams");
+                }
+
+                // Update only the properties you want to change
+                existingExam.Title = exam.Title;
+                existingExam.Description = exam.Description;
+                existingExam.DurationInMinutes = exam.DurationInMinutes;
+
+                await _examService.UpdateAsync(existingExam); // Update the existing entity
+
+                TempData["SuccessMessage"] = "Exam updated successfully!";
                 return RedirectToAction("GetAllExams");
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogError(ex, "Concurrency error updating exam");
+                ModelState.AddModelError("", "The record you attempted to edit was modified by another user. Please try again.");
+                return View(exam);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating exam");
-                ModelState.AddModelError("", "An error occurred while updating the exam.");
-                return BadRequest(ModelState);
+                ModelState.AddModelError("", "An error occurred while updating the exam. Please try again.");
+                return View(exam);
             }
         }
+
+
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -197,17 +223,12 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
         {
             try
             {
-                // Validate question title
                 if (string.IsNullOrEmpty(question.Title))
                 {
                     ModelState.AddModelError("", "The question title cannot be empty.");
                     return View(question);
                 }
-
-                // Clear existing choices to avoid duplication
                 question.Choices.Clear();
-
-                // Manually bind choices from the form
                 for (int i = 0; i < 4; i++)
                 {
                     var choiceText = HttpContext.Request.Form[$"Choices[{i}].Text"];
@@ -221,22 +242,17 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                         question.Choices.Add(choice);
                     }
                 }
-
-                // Ensure there are choices provided
                 if (!question.Choices.Any())
                 {
                     ModelState.AddModelError("", "You must provide at least one choice.");
                     return View(question);
                 }
 
-                // Validate the correct choice index
                 if (correctChoiceIndex < 0 || correctChoiceIndex >= question.Choices.Count)
                 {
                     ModelState.AddModelError("", "Invalid correct choice index.");
                     return View(question);
                 }
-
-                // Save the question along with its choices
                 await _questionService.CreateAsync(question);
 
                 return RedirectToAction("GetQuestions", new { examId = question.ExamId });
@@ -248,9 +264,7 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 return View(question);
             }
         }
-
-
-
+        [HttpGet]
         public async Task<IActionResult> EditQuestion(int id)
         {
             try
@@ -258,69 +272,92 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 var question = await _questionService.GetByIdAsync(id);
                 if (question == null)
                 {
-                    ModelState.AddModelError("", "Question not found.");
-                    return NotFound();
+                    TempData["ErrorMessage"] = "Question not found.";
+                    return RedirectToAction("GetQuestions", new { examId = question?.ExamId });
                 }
+
+                // Ensure we have at least 4 choices for the form
+                while (question.Choices.Count < 4)
+                {
+                    question.Choices.Add(new Choice());
+                }
+
                 return View(question);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting question for edit");
-                ModelState.AddModelError("", "An error occurred while retrieving the question.");
-                return NotFound();
+                TempData["ErrorMessage"] = "An error occurred while retrieving the question.";
+                return RedirectToAction("Index");
             }
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditQuestion(Question question)
+        public async Task<IActionResult> EditQuestion(Question question, int correctChoiceIndex)
         {
             try
             {
-                if (!ModelState.IsValid)
+                if (string.IsNullOrEmpty(question.Title))
                 {
-                    return BadRequest(ModelState);
+                    ModelState.AddModelError("", "The question title cannot be empty.");
+                    return View(question);
+                }
+                question.Choices = new List<Choice>();
+                for (int i = 0; i < 4; i++)
+                {
+                    var choiceText = HttpContext.Request.Form[$"Choices[{i}].Text"];
+                    if (!string.IsNullOrEmpty(choiceText))
+                    {
+                        question.Choices.Add(new Choice
+                        {
+                            Text = choiceText,
+                            IsCorrect = (i == correctChoiceIndex)
+                        });
+                    }
+                }
+
+                if (!question.Choices.Any())
+                {
+                    ModelState.AddModelError("", "You must provide at least one choice.");
+                    return View(question);
+                }
+
+                if (correctChoiceIndex < 0 || correctChoiceIndex >= question.Choices.Count)
+                {
+                    ModelState.AddModelError("", "Invalid correct choice index.");
+                    return View(question);
                 }
 
                 await _questionService.UpdateAsync(question);
+                TempData["SuccessMessage"] = "Question updated successfully!";
                 return RedirectToAction("GetQuestions", new { examId = question.ExamId });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating question");
                 ModelState.AddModelError("", "An error occurred while updating the question.");
-                return BadRequest(ModelState);
+                return View(question);
             }
         }
-
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteQuestion(int id)
         {
             try
             {
-                var question = await _questionService.GetByIdAsync(id);
-                if (question == null)
-                {
-                    ModelState.AddModelError("", "Question not found.");
-                    return NotFound();
-                }
-
                 await _questionService.DeleteAsync(id);
-                return RedirectToAction("GetQuestions", new { examId = question.ExamId });
+                return RedirectToAction("GetQuestions");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting question");
-                ModelState.AddModelError("", "An error occurred while deleting the question.");
+                _logger.LogError(ex, "Error deleting Question");
+                ModelState.AddModelError("", "An error occurred while deleting the Question.");
                 return BadRequest(ModelState);
             }
         }
 
-        // ========== Choices ==========
-      
-
-       
+        
         // ========== Users ==========
         public async Task<IActionResult> GetAllUsers(string? search, int pageNumber = 1)
         {

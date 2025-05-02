@@ -99,7 +99,7 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
                     // Check if the user is an admin
                     if (await _userManager.IsInRoleAsync(user, "Admin"))
                     {
-                        return RedirectToAction("GetAllExam", "Admin", new { area = "Admin" });
+                        return RedirectToAction("GetAllExams", "Admin", new { area = "Admin" });
                     }
                     else
                     {

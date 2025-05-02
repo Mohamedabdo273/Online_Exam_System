@@ -11,6 +11,7 @@ namespace infrastructure.Services.Iservices
     {
         Task<IEnumerable<UserExam>> GetAllAsync();
         Task<UserExam?> GetByIdAsync(int id);
+        Task<bool> HasUserTakenExam(string userId, int examId);
         Task CreateAsync(UserExam userExam);
         Task UpdateAsync(UserExam userExam);
         Task DeleteAsync(int id);

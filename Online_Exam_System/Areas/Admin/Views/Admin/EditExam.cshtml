@@ -1,34 +1,51 @@
 ﻿@model Models.Models.Exam
 @{
     ViewData["Title"] = "Edit Exam";
+    Layout = "_Layout";
 }
 
 <div class="container mt-4">
-    <h2>Edit Exam</h2>
+<h2>Edit Exam</h2>
 
-    <form asp-action="EditExam" method="post" id="editExamForm">
-        <input type="hidden" asp-for="Id" />
+@if (ViewData.ModelState.ErrorCount > 0)
+{
+    <div class="alert alert-danger">
+        <h4>Validation Errors:</h4>
+        <ul>
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <li>@error.ErrorMessage</li>
+            }
+        </ul>
+    </div>
+}
 
-        <div class="mb-3">
-            <label asp-for="Title" class="form-label"></label>
-            <input asp-for="Title" class="form-control" required />
-            <div class="invalid-feedback">Please provide a title.</div>
+<form asp-action="EditExam" method="post" id="editExamForm">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+        <div class="form-group mb-3">
+            <label asp-for="Title" class="form-label">Title</label>
+            @Html.EditorFor(model => model.Title, new { htmlAttributes = new { @class = "form-control" } })
+            <span asp-validation-for="Title" class="text-danger"></span>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="Description" class="form-label"></label>
-            <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+
+        <div class="form-group mb-3">
+            <label asp-for="Description" class="form-label">Description</label>
+            @Html.EditorFor(model => model.Description, new { htmlAttributes = new { @class = "form-control" } })
+            <span asp-validation-for="Description" class="text-danger"></span>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="DurationInMinutes" class="form-label"></label>
-            <input asp-for="DurationInMinutes" class="form-control" min="1" required />
-            <div class="invalid-feedback">Please provide a valid duration.</div>
+        <div class="form-group mb-3">
+            <label asp-for="DurationInMinutes" class="form-label">DurationInMinutes</label>
+            @Html.EditorFor(model => model.DurationInMinutes, new { htmlAttributes = new { @class = "form-control" } })
+            <span asp-validation-for="DurationInMinutes" class="text-danger"></span>
         </div>
 
-        <div class="d-flex justify-content-between">
-            <a href="@Url.Action("GetAllExams")" class="btn btn-secondary">Back to List</a>
+        <div class="form-group mt-3">
             <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="@Url.Action("GetAllExams")" class="btn btn-outline-secondary">Cancel</a>
         </div>
     </form>
 </div>

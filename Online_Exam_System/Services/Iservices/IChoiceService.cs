@@ -9,7 +9,7 @@ namespace infrastructure.Services.Iservices
 {
      public interface IChoiceService
     {
-        Task<IEnumerable<Choice>> GetAllAsync();
+        Task<IEnumerable<Choice>> GetAllAsync(int questionID);
         Task<Choice?> GetByIdAsync(int id);
         Task CreateAsync(Choice choice);
         Task UpdateAsync(Choice choice);

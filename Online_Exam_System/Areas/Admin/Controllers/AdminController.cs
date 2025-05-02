@@ -1,4 +1,5 @@
 ﻿using infrastructure.Services.Iservices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ using System.Net;
 namespace OnlineExamSystem.Areas.Admin.Controllers
 {
     [Area("Admin")]
+    [Authorize(Roles ="Admin")]
     public class AdminController : Controller
     {
         private readonly IExamService _examService;
@@ -45,6 +47,12 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 return View(new List<Exam>());
             }
         }
+        
+        public IActionResult CreateExam()
+        {
+            return View();
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateExam(Exam exam)
@@ -53,18 +61,24 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    var allErrors = ModelState.Values.SelectMany(v => v.Errors);
+                    foreach (var error in allErrors)
+                    {
+                        Console.WriteLine(error.ErrorMessage); // مؤقتًا للعرض فقط
+                    }
+
+                    return View(exam);
                 }
 
-                await _examService.CreateAsync(exam);
 
-                return Json(new { redirectUrl = Url.Action("GetAllExams") });
+                await _examService.CreateAsync(exam);
+                return RedirectToAction("GetAllExams");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating exam");
                 ModelState.AddModelError("", "An error occurred while creating the exam.");
-                return BadRequest(ModelState);
+                return View(exam);
             }
         }
 
@@ -154,7 +168,7 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
         {
             try
             {
-                var questions = await _questionService.GetByIdAsync(examId);
+                var questions = await _questionService.GetByExamIdAsync(examId);
                 ViewBag.ExamId = examId;
                 return View(questions);
             }
@@ -166,28 +180,76 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 return View(new List<Question>());
             }
         }
+        [HttpGet]
+        public IActionResult CreateQuestion(int examId)
+        {
+            var question = new Question
+            {
+                ExamId = examId,
+                Choices = new List<Choice>()
+            };
+            return View(question);
+        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateQuestion(Question question)
+        public async Task<IActionResult> CreateQuestion(Question question, int correctChoiceIndex)
         {
             try
             {
-                if (!ModelState.IsValid)
+                // Validate question title
+                if (string.IsNullOrEmpty(question.Title))
                 {
-                    return BadRequest(ModelState);
+                    ModelState.AddModelError("", "The question title cannot be empty.");
+                    return View(question);
                 }
 
+                // Clear existing choices to avoid duplication
+                question.Choices.Clear();
+
+                // Manually bind choices from the form
+                for (int i = 0; i < 4; i++)
+                {
+                    var choiceText = HttpContext.Request.Form[$"Choices[{i}].Text"];
+                    if (!string.IsNullOrEmpty(choiceText))
+                    {
+                        var choice = new Choice
+                        {
+                            Text = choiceText,
+                            IsCorrect = (i == correctChoiceIndex)
+                        };
+                        question.Choices.Add(choice);
+                    }
+                }
+
+                // Ensure there are choices provided
+                if (!question.Choices.Any())
+                {
+                    ModelState.AddModelError("", "You must provide at least one choice.");
+                    return View(question);
+                }
+
+                // Validate the correct choice index
+                if (correctChoiceIndex < 0 || correctChoiceIndex >= question.Choices.Count)
+                {
+                    ModelState.AddModelError("", "Invalid correct choice index.");
+                    return View(question);
+                }
+
+                // Save the question along with its choices
                 await _questionService.CreateAsync(question);
+
                 return RedirectToAction("GetQuestions", new { examId = question.ExamId });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating question");
                 ModelState.AddModelError("", "An error occurred while creating the question.");
-                return BadRequest(ModelState);
+                return View(question);
             }
         }
+
+
 
         public async Task<IActionResult> EditQuestion(int id)
         {
@@ -256,158 +318,9 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
         }
 
         // ========== Choices ==========
-        public async Task<IActionResult> GetChoices(int questionId)
-        {
-            try
-            {
-                var choices = await _choiceService.GetByIdAsync(questionId);
-                ViewBag.QuestionId = questionId;
-                return View(choices);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting choices for question {QuestionId}", questionId);
-                ModelState.AddModelError("", "An error occurred while retrieving choices.");
-                ViewBag.QuestionId = questionId;
-                return View(new List<Choice>());
-            }
-        }
+      
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateChoice(Choice choice)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                await _choiceService.CreateAsync(choice);
-                return RedirectToAction("GetChoices", new { questionId = choice.QuestionId });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating choice");
-                ModelState.AddModelError("", "An error occurred while creating the choice.");
-                return BadRequest(ModelState);
-            }
-        }
-
-        public async Task<IActionResult> EditChoice(int id)
-        {
-            try
-            {
-                var choice = await _choiceService.GetByIdAsync(id);
-                if (choice == null)
-                {
-                    ModelState.AddModelError("", "Choice not found.");
-                    return NotFound();
-                }
-                return View(choice);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting choice for edit");
-                ModelState.AddModelError("", "An error occurred while retrieving the choice.");
-                return NotFound();
-            }
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditChoice(Choice choice)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                await _choiceService.UpdateAsync(choice);
-                return RedirectToAction("GetChoices", new { questionId = choice.QuestionId });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating choice");
-                ModelState.AddModelError("", "An error occurred while updating the choice.");
-                return BadRequest(ModelState);
-            }
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteChoice(int id)
-        {
-            try
-            {
-                var choice = await _choiceService.GetByIdAsync(id);
-                if (choice == null)
-                {
-                    ModelState.AddModelError("", "Choice not found.");
-                    return NotFound();
-                }
-
-                await _choiceService.DeleteAsync(id);
-                return RedirectToAction("GetChoices", new { questionId = choice.QuestionId });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error deleting choice");
-                ModelState.AddModelError("", "An error occurred while deleting the choice.");
-                return BadRequest(ModelState);
-            }
-        }
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SetCorrectChoice(int choiceId)
-        {
-            try
-            {
-                var choice = await _choiceService.GetByIdAsync(choiceId);
-                if (choice == null)
-                {
-                    return NotFound();
-                }
-
-                // Get all choices for the question
-                var choices = await _choiceService.GetChoicesByQuestionIdAsync(choice.QuestionId);
-                if (choices == null || !choices.Any())
-                {
-                    return NotFound("No choices found for this question.");
-                }
-
-                // Reset all choices to IsCorrect = false
-                foreach (var c in choices)
-                {
-                    c.IsCorrect = false;
-                }
-
-                // Set the selected choice to IsCorrect = true
-                var selectedChoice = choices.FirstOrDefault(c => c.Id == choiceId);
-                if (selectedChoice != null)
-                {
-                    selectedChoice.IsCorrect = true;
-                }
-
-                // Update all choices in bulk (if supported) or one-by-one
-                foreach (var c in choices)
-                {
-                    await _choiceService.UpdateAsync(c);
-                }
-
-                return Ok("Correct choice set successfully.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error setting correct choice");
-                return StatusCode(500, "An internal server error occurred.");
-            }
-        }
-
-
+       
         // ========== Users ==========
         public async Task<IActionResult> GetAllUsers(string? search, int pageNumber = 1)
         {

@@ -1,0 +1,147 @@
+﻿@model IEnumerable<Models.Models.Exam>
+
+@{
+    ViewData["Title"] = "Available Exams";
+    Layout = "_Layout";
+}
+@section Styles {
+    <style>
+        /* Exam Index Styles */
+        .exam-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .exam-card {
+            transition: all 0.3s ease;
+            height: 100%;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+            .exam-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            }
+
+            .exam-card .card-body {
+                padding: 1.5rem;
+            }
+
+            .exam-card .card-title {
+                font-size: 1.25rem;
+                font-weight: 600;
+                margin-bottom: 1rem;
+                color: #2c3e50;
+            }
+
+            .exam-card .card-text {
+                color: #7f8c8d;
+                margin-bottom: 1.5rem;
+            }
+
+            .exam-card .btn-primary {
+                background-color: #3498db;
+                border-color: #3498db;
+                padding: 0.5rem 1.5rem;
+                border-radius: 50px;
+                font-weight: 500;
+            }
+
+                .exam-card .btn-primary:hover {
+                    background-color: #2980b9;
+                    border-color: #2980b9;
+                }
+
+        /* Responsive adjustments */
+
+
+        {
+            margin-bottom: 15px;
+        }
+
+        .exam-card .card-body {
+            padding: 1rem;
+        }
+
+    }
+</style>
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4">@ViewData["Title"]</h2>
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="row" id="exams-container">
+        @foreach (var exam in Model)
+        {
+            <div class="col-md-6 mb-4">
+                <div class="card exam-card">
+                    <div class="card-body">
+                        <h5 class="card-title">@exam.Title</h5>
+                        <p class="card-text">
+                            Duration: @exam.DurationInMinutes minutes<br>
+                            Questions: @(exam.Questions?.Count ?? 0)
+                        </p>
+                        <a href="@Url.Action("TakeExam", new { id = exam.Id })" class="btn btn-primary">Take Exam</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-dismiss alerts after 5 seconds
+            const alert = document.querySelector('.alert');
+            if (alert) {
+                setTimeout(() => {
+                    alert.classList.add('fade');
+                    setTimeout(() => alert.remove(), 150);
+                }, 5000);
+            }
+
+            // Add hover effects to exam cards
+            const examCards = document.querySelectorAll('.exam-card');
+
+            examCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px)';
+                    this.style.boxShadow = '0 10px 20px rgba(0, 0, 0, 0.15)';
+                });
+
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = '';
+                    this.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                });
+            });
+
+            // Optional: AJAX exam loading
+            
+            function loadExams() {
+                fetch('/Exam/GetExamsData')
+                    .then(response => response.json())
+                    .then(data => {
+                        Process and display exams
+                    })
+                    .catch(error => {
+                        console.error('Error loading exams:', error);
+                    });
+            }
+           
+        });
+    </script>
+}

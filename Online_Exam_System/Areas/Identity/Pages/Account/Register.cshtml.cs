@@ -132,20 +132,22 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
+            // Create roles if they don't exist
             if (roleManager.Roles.IsNullOrEmpty())
             {
                 await roleManager.CreateAsync(new IdentityRole("Admin"));
                 await roleManager.CreateAsync(new IdentityRole("User"));
             }
+
             returnUrl ??= Url.Content("~/");
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+
             if (ModelState.IsValid)
             {
                 var usersExist = await _userManager.Users.AnyAsync();
                 var user = CreateUser();
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-               // await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
                 user.FullName = Input.FullName;
                 user.Email = Input.Email;
                 user.UserName = Input.Email;
@@ -155,8 +157,9 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("User created a new account with password.");
-                    // To MakeThe First register is the Admin
-                    if (usersExist)
+
+                    // Assign role (Admin for first user, User for others)
+                    if (!usersExist)
                     {
                         await _userManager.AddToRoleAsync(user, "Admin");
                     }
@@ -164,6 +167,7 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
                     {
                         await _userManager.AddToRoleAsync(user, "User");
                     }
+
                     var userId = await _userManager.GetUserIdAsync(user);
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                     code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
@@ -182,10 +186,12 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
                     }
                     else
                     {
-                        await _signInManager.SignInAsync(user, isPersistent: false);
-                        return LocalRedirect(returnUrl);
+                        // Instead of signing in, redirect to login page
+                        TempData["RegistrationSuccess"] = "Registration successful! Please log in.";
+                        return RedirectToPage("Login");
                     }
                 }
+
                 foreach (var error in result.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
@@ -193,9 +199,8 @@ namespace Online_Exam_System.Areas.Identity.Pages.Account
             }
 
             // If we got this far, something failed, redisplay form
-            return Redirect("~/Identity/Account/Login");
+            return Page();
         }
-
         private ApplicationUser CreateUser()
         {
             try

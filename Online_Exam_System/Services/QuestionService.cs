@@ -20,14 +20,20 @@ namespace infrastructure.Services
 
         public async Task<IEnumerable<Question>> GetAllAsync()
         {
-            return await _unitOfWork.QuestionRepository.GetAsync();
+            return await _unitOfWork.QuestionRepository.GetAsync([e => e.Choices]);
         }
 
         public async Task<Question?> GetByIdAsync(int id)
         {
-            return await _unitOfWork.QuestionRepository.GetOneAsync(expression: e => e.Id == id);
+            return await _unitOfWork.QuestionRepository.GetOneAsync([e=>e.Choices],expression: e => e.Id == id);
         }
-
+        public async Task<IEnumerable<Question>> GetByExamIdAsync(int examId)
+        {
+            return await _unitOfWork.QuestionRepository.GetAsync(
+                [ q => q.Choices],
+                expression: q => q.ExamId == examId
+            ) ?? new List<Question>();
+        }
         public async Task CreateAsync(Question exam)
         {
             await _unitOfWork.QuestionRepository.CreateAsync(exam);

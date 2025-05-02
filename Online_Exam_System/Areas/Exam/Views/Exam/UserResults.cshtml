@@ -1,0 +1,97 @@
+﻿@model IEnumerable<Models.Models.UserExam>
+
+@{
+    ViewData["Title"] = "Your Exam Results";
+    Layout = "_Layout";
+}
+
+<div class="container results-container">
+    <h2 class="mb-4">@ViewData["Title"]</h2>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">
+            You haven't taken any exams yet.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Exam</th>
+                        <th>Date Taken</th>
+                        <th>Score</th>
+                        <th>Result</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var result in Model)
+                    {
+                        <tr>
+                            <td>@result.Exam?.Title</td>
+                            <td>@result.TakenAt.ToString("g")</td>
+                            <td>@result.Score.ToString("0.00")%</td>
+                            <td>
+                                @if (result.Passed)
+                                {
+                                    <span class="badge bg-success">Passed</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Failed</span>
+                                }
+                            </td>
+                            <td>
+                                <a href="@Url.Action("ExamDetails", new { id = result.Id })" class="btn btn-sm btn-outline-primary">
+                                    View Details
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+@section Styles {
+    <style>
+        .results-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 1.5rem;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .table {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+            .table th {
+                font-weight: 600;
+                background-color: #f8f9fa;
+            }
+
+        .badge {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        @@media (max-width: 768px) {
+            .results-container {
+                padding: 1rem;
+            }
+
+            .table-responsive {
+                overflow-x: auto;
+            }
+        }
+    </style>
+}
+

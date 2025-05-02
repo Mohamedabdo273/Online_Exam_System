@@ -1,7 +1,158 @@
 ﻿@model Models.Models.Exam
 @{
     ViewData["Title"] = "Exam Details";
+    Layout = "_Layout";
 }
+}
+<style>
+    /* Exam Details Page Specific Styles */
+    .exam-details-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .question-accordion .accordion-button:not(.collapsed) {
+        background-color: #f8f9fa;
+        color: #212529;
+    }
+
+    .question-accordion .accordion-button:focus {
+        box-shadow: none;
+        border-color: rgba(0,0,0,.125);
+    }
+
+    .choice-item {
+        transition: all 0.2s ease;
+    }
+
+        .choice-item:hover {
+            background-color: #f8f9fa;
+        }
+
+    .correct-badge {
+        font-size: 0.75rem;
+    }
+
+    /* Loading spinner for AJAX operations */
+    .loading-spinner {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    /* Corrected Responsive Adjustments */
+    /* Exam Details Page Specific Styles */
+    .exam-details-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .card-header.bg-primary h4 {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .question-accordion .accordion-button:not(.collapsed) {
+        background-color: #f8f9fa;
+        color: #212529;
+    }
+
+    .question-accordion .accordion-button:focus {
+        box-shadow: none;
+        border-color: rgba(0,0,0,.125);
+    }
+
+    .list-group-item-success {
+        background-color: #e6f7ee;
+    }
+
+    .correct-badge {
+        font-size: 0.75rem;
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .card-header.bg-primary h4 {
+        font-size: 1.25rem;
+    }
+
+    /* Card body adjustments */
+    .card-body {
+        padding: 1rem;
+    }
+
+        .card-body h5 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+    /* Button adjustments */
+    .d-flex.justify-content-between .btn {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    /* Accordion adjustments */
+    .accordion-button {
+        padding: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    /* Stack columns */
+    .row > .col-md-6 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    }
+    /* Target section headings in card body */
+    .card-body h5 {
+        font-size: 1.1rem;
+    }
+
+    /* Adjust accordion spacing */
+    #questionsAccordion .accordion-item {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Make buttons more touch-friendly */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    /* Stack the description and duration columns */
+    .card-body .row > .col-md-6 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    }
+</style>
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -35,7 +186,17 @@
             </div>
 
             <div id="questionsAccordion">
-                @if (Model.Questions != null && Model.Questions.Any())
+                @if (Model.Questions == null)
+                {
+                    <div class="alert alert-warning">
+                        Could not load questions. Please try again.
+                    </div>
+                }
+                else if (!Model.Questions.Any())
+                {
+                    <div class="alert alert-info">No questions added yet.</div>
+                }
+                else
                 {
                     @foreach (var question in Model.Questions)
                     {
@@ -51,15 +212,22 @@
                                  aria-labelledby="heading@(question.Id)" data-bs-parent="#questionsAccordion">
                                 <div class="accordion-body">
                                     <ul class="list-group">
-                                        @foreach (var choice in question.Choices)
+                                        @if (question.Choices != null && question.Choices.Any())
                                         {
-                                            <li class="list-group-item @(choice.IsCorrect ? "list-group-item-success" : "")">
-                                                @choice.Text
-                                                @if (choice.IsCorrect)
-                                                {
-                                                    <span class="badge bg-success float-end">Correct</span>
-                                                }
-                                            </li>
+                                            @foreach (var choice in question.Choices)
+                                            {
+                                                <li class="list-group-item @(choice.IsCorrect ? "list-group-item-success" : "")">
+                                                    @choice.Text
+                                                    @if (choice.IsCorrect)
+                                                    {
+                                                        <span class="badge bg-success float-end">Correct</span>
+                                                    }
+                                                </li>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <li class="list-group-item">No choices available</li>
                                         }
                                     </ul>
                                 </div>
@@ -67,11 +235,121 @@
                         </div>
                     }
                 }
-                else
-                {
-                    <div class="alert alert-info">No questions added yet.</div>
-                }
             </div>
         </div>
     </div>
 </div>
+
+ <script>
+                                                        document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Handle question management button click
+        const manageQuestionsBtn = document.querySelector('.btn-success');
+        if (manageQuestionsBtn) {
+            manageQuestionsBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showLoadingSpinner();
+                window.location.href = this.href;
+            });
+        }
+
+        // Accordion enhancement
+        const accordionItems = document.querySelectorAll('.accordion-item');
+        accordionItems.forEach(item => {
+            const button = item.querySelector('.accordion-button');
+            button.addEventListener('click', function() {
+                // You could add additional logic here when a question is expanded
+                console.log('Question expanded:', this.textContent.trim());
+            });
+        });
+
+        // Back button handler
+        const backButton = document.querySelector('.btn-outline-secondary');
+        if (backButton) {
+            backButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = this.href;
+            });
+        }
+
+        // AJAX example for future implementation (e.g., submitting exam answers)
+        function submitExamAnswers(examId, answers) {
+            showLoadingSpinner();
+
+            fetch(`/Exam/SubmitAnswers/${examId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(answers)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideLoadingSpinner();
+                if (data.success) {
+                    showAlert('success', 'Exam submitted successfully!');
+                    // Redirect or update UI as needed
+                } else {
+                    showAlert('danger', data.message || 'Error submitting exam.');
+                }
+            })
+            .catch(error => {
+                hideLoadingSpinner();
+                showAlert('danger', 'An error occurred: ' + error.message);
+                console.error('Error:', error);
+            });
+        }
+
+        // Utility functions
+        function showLoadingSpinner() {
+            let spinner = document.querySelector('.loading-spinner');
+            if (!spinner) {
+                spinner = document.createElement('div');
+                spinner.className = 'loading-spinner';
+                spinner.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+                document.body.appendChild(spinner);
+            }
+            spinner.style.display = 'flex';
+        }
+
+        function hideLoadingSpinner() {
+            const spinner = document.querySelector('.loading-spinner');
+            if (spinner) {
+                spinner.style.display = 'none';
+            }
+        }
+
+        function showAlert(type, message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.setAttribute('role', 'alert');
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+
+            const container = document.querySelector('.container');
+            container.insertBefore(alertDiv, container.firstChild);
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+                alert.close();
+            }, 5000);
+        }
+
+        // Initialize any other UI components or event listeners here
+        console.log('Exam details page initialized');
+    });
+ </script>

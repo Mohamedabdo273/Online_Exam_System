@@ -20,12 +20,12 @@ namespace infrastructure.Services
 
         public async Task<IEnumerable<Exam>> GetAllAsync()
         {
-            return await _unitOfWork.ExamRepository.GetAsync();
+            return await _unitOfWork.ExamRepository.GetAsync([e => e.Questions]);
         }
 
         public async Task<Exam?> GetByIdAsync(int id)
         {
-            return await _unitOfWork.ExamRepository.GetOneAsync(expression: e => e.Id == id);
+            return await _unitOfWork.ExamRepository.GetOneAsync([e=>e.Questions],expression: e => e.Id == id);
         }
 
         public async Task CreateAsync(Exam exam)

@@ -1,0 +1,42 @@
+﻿@model Models.Models.Exam
+
+@{
+    ViewData["Title"] = "Create Exam";
+    Layout = "_Layout";
+}
+
+<h2>Create New Exam</h2>
+
+<form asp-action="CreateExam" method="post">
+    @Html.AntiForgeryToken()
+
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Title" class="form-label">Title</label>
+        @Html.EditorFor(model => model.Title, new { htmlAttributes = new { @class = "form-control" } })
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+
+
+    <div class="form-group mb-3">
+        <label asp-for="Description" class="form-label">Description</label>
+        @Html.EditorFor(model => model.Description, new { htmlAttributes = new { @class = "form-control" } })
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="DurationInMinutes" class="form-label">DurationInMinutes</label>
+        @Html.EditorFor(model => model.DurationInMinutes, new { htmlAttributes = new { @class = "form-control" } })
+        <span asp-validation-for="DurationInMinutes" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create</button>
+    <a asp-action="GetAllExams" class="btn btn-secondary">Cancel</a>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

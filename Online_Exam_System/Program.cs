@@ -67,11 +67,13 @@ app.UseAuthorization();
 
 app.MapRazorPages(); // Required for Identity UI
 
-app.MapGet("/", () => Results.Redirect("/Identity/Account/Register"));
+app.MapGet("/", () => Results.Redirect("/Identity/Account/Login"));
 
-// Controller Routes
+app.MapControllerRoute(
+    name: "areas",
+    pattern: "{area:exists}/{controller=Home}/{action=Index}/{id?}");
+
 app.MapControllerRoute(
     name: "default",
-    pattern: "{area=Identity}/{controller=Account}/{action=Register}/{id?}");
-
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 app.Run();

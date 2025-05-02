@@ -58,9 +58,9 @@
     <h2>Exam Management</h2>
 
     <div class="d-flex justify-content-between mb-3">
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createExamModal">
+        <a href="@Url.Action("CreateExam", "Admin")" class="btn btn-primary">
             <i class="fas fa-plus"></i> Create New Exam
-        </button>
+        </a>
     </div>
 
     <div class="table-responsive">
@@ -100,44 +100,6 @@
     </div>
 </div>
 
-<!-- Create Exam Modal -->
-<div class="modal fade" id="createExamModal" tabindex="-1" aria-labelledby="createExamModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createExamModalLabel">Create New Exam</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <!-- Create Exam Form -->
-            <form id="createExamForm" asp-action="CreateExam">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-                @Html.AntiForgeryToken()
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="Title" class="form-label">Title</label>
-                        <input name="Title" class="form-control" required />
-                        <div class="invalid-feedback">Please provide a title.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="Description" class="form-label">Description</label>
-                        <input name="Description" class="form-control" required />
-                    </div>
-                    <div class="mb-3">
-                        <label for="DurationInMinutes" class="form-label">Duration (minutes)</label>
-                        <input name="DurationInMinutes" class="form-control" required />
-                        <div class="invalid-feedback">Please provide a valid duration.</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Create Exam</button>
-                </div>
-            </form>
-
-        </div>
-    </div>
-</div>
 
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteExamModal" tabindex="-1" aria-hidden="true">

@@ -17,9 +17,9 @@ namespace infrastructure.Services
         {
             _unitOfWork = unitOfWork;
         }
-        public async Task<IEnumerable<Choice>> GetAllAsync()
+        public async Task<IEnumerable<Choice>> GetAllAsync(int questionID)
         {
-            return await _unitOfWork.ChoiceRepository.GetAsync();
+            return await _unitOfWork.ChoiceRepository.GetAsync(expression:e=>e.QuestionId==questionID);
         }
 
         public async Task<Choice?> GetByIdAsync(int id)

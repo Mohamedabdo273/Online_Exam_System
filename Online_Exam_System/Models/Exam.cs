@@ -17,7 +17,7 @@ namespace Models.Models
         public string? Title { get; set; }
         [Required]
         public string? Description { get; set; }
-        public string? DurationInMinutes { get; set; }
+        public double DurationInMinutes { get; set; }
         [ValidateNever]
         [JsonIgnore]       
         public ICollection<Question> Questions { get; set; }

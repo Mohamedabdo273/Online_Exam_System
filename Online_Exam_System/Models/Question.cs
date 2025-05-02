@@ -13,7 +13,7 @@ namespace Models.Models
         public string Title { get; set; }
 
         public Exam? Exam { get; set; }
-        public ICollection<Choice> Choices { get; set; }
+        public List<Choice> Choices { get; set; } = new List<Choice>(); 
         public ICollection<UserAnswer> userAnswers { get; set; }
     }
 

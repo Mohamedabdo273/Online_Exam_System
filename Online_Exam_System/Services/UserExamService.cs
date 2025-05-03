@@ -1,5 +1,6 @@
 ﻿using infrastructure.Services.Iservices;
 using infrastructures.UnitOfWork;
+using Microsoft.EntityFrameworkCore;
 using Models.Models;
 using System;
 using System.Collections.Generic;
@@ -20,20 +21,29 @@ namespace infrastructure.Services
 
         public async Task<IEnumerable<UserExam>> GetAllAsync()
         {
-            return await _unitOfWork.UserExamRepository.GetAsync();
+            return await _unitOfWork.UserExamRepository.GetAsync([e=>e.UserAnswers]);
         }
 
         public async Task<UserExam?> GetByIdAsync(int id)
         {
-            return await _unitOfWork.UserExamRepository.GetOneAsync(expression: e => e.Id == id);
+            return await _unitOfWork.UserExamRepository.GetOneAsync([e => e.UserAnswers],expression: e => e.Id == id);
         }
 
         public async Task CreateAsync(UserExam userExam)
         {
-            await _unitOfWork.UserExamRepository.CreateAsync(userExam);
-            await _unitOfWork.CompleteAsync();
-        }
 
+            try
+            {
+                await _unitOfWork.UserExamRepository.CreateAsync(userExam);
+                await _unitOfWork.CompleteAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("DB ERROR: " + ex.InnerException?.Message ?? ex.Message);
+                throw;
+            }
+
+        }
         public async Task UpdateAsync(UserExam userExam)
         {
             _unitOfWork.UserExamRepository.Edit(userExam);

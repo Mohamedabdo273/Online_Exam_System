@@ -15,10 +15,10 @@ namespace infrastructures.UnitOfWork
        public IQuestionRepository QuestionRepository { get; }
        public IUserAnswerRepository UserAnswerRepository { get; }
        public IUserExamRepository UserExamRepository { get; }
-        
 
 
-
+        Task RollbackTransactionAsync();
+       Task CommitTransactionAsync();
         int Complete();
         Task CompleteAsync();
         Task<IDbContextTransaction> BeginTransactionAsync();

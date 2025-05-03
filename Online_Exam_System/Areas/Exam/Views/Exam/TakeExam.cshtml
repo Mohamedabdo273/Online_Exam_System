@@ -335,8 +335,22 @@
         }
     </style>
 }
+
 @section Scripts {
     <script>
+         document.getElementById("examForm").addEventListener("submit", function (e) {
+            const answers = {};
+
+            document.querySelectorAll(".question-card").forEach(card => {
+                const questionId = card.getAttribute("data-question-id");
+                const selectedOption = card.querySelector("input[type='radio']:checked");
+                if (selectedOption) {
+                    answers[questionId] = selectedOption.value;
+                }
+            });
+
+            document.getElementById("questionAnswers").value = JSON.stringify(answers);
+        });
         $(document).ready(function() {
             // Timer initialization
             let duration = @duration * 60;
@@ -385,51 +399,55 @@
                 });
                 return isValid;
             }
+           function submitExam() {
+            clearInterval(timerInterval);
+            $('input').prop('disabled', true);
+            const submitBtn = $('#submitExam');
+            submitBtn.html('<span class="spinner-border spinner-border-sm"></span> Submitting...')
+                   .prop('disabled', true);
 
-                     function submitExam() {
-                clearInterval(timerInterval);
-                $('input').prop('disabled', true);
-                const submitBtn = $('#submitExam');
-                submitBtn.html('<span class="spinner-border spinner-border-sm"></span> Submitting...')
-                       .prop('disabled', true);
+            // Collect answers
+            const answers = {};
+            $('.question-card').each(function() {
+                const questionId = $(this).data('question-id');
+                const selectedChoice = $(`input[name="questionAnswers[${questionId}]"]:checked`);
+                if (selectedChoice.length) {
+                    answers[questionId] = parseInt(selectedChoice.val());
+                }
+            });
 
-                // 1. جمع الإجابات بشكل صحيح
-                const answers = {};
-                $('input[type="radio"]:checked').each(function() {
-                    const name = $(this).attr('name');
-                    const questionId = name.match(/\[(\d+)\]/)[1];
-                    answers[questionId] = parseInt($(this).val());
-                });
+            // Prepare data for submission
+            const data = {
+                examId: $('#examForm input[name="examId"]').val(),
+                userId: $('#examForm input[name="userId"]').val(),
+                questionAnswers: JSON.stringify(answers)
+            };
 
-                // 2. تحضير البيانات كما يتوقعها الخادم
-                const formData = new FormData();
-                formData.append('examId', '@examId');
-                formData.append('userId', '@userId'); // إرسال كـ string
-                formData.append('questionAnswers', JSON.stringify(answers));
+            // Get anti-forgery token
+            const token = $('input[name="__RequestVerificationToken"]').val();
 
-                // 3. إرسال البيانات كـ multipart/form-data
-                $.ajax({
-                    url: $('#examForm').attr('action'),
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    headers: {
-                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
-                    },
-                    success: function(response) {
-                        if (response.redirectUrl) {
-                            window.location.href = response.redirectUrl;
-                        }
-                    },
-                    error: function(xhr) {
-                        console.error('Error:', xhr.responseText);
-                        showAlert('Error submitting exam: ' + (xhr.responseJSON?.message || xhr.statusText), 'danger');
-                        $('input').prop('disabled', false);
-                        submitBtn.html('Submit Exam').prop('disabled', false);
+            // Submit via AJAX
+            $.ajax({
+                url: $('#examForm').attr('action'),
+                type: 'POST',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: $.param(data),
+                headers: {
+                    'RequestVerificationToken': token
+                },
+                success: function(response) {
+                    if (response.redirectUrl) {
+                        window.location.href = response.redirectUrl;
                     }
-                });
-            }
+                },
+                error: function(xhr) {
+                    console.error('Error:', xhr.responseText);
+                    showAlert('Error submitting exam: ' + (xhr.responseJSON?.message || xhr.statusText), 'danger');
+                    $('input').prop('disabled', false);
+                    submitBtn.html('Submit Exam').prop('disabled', false);
+                }
+            });
+        }
             function showAlert(message, type) {
                 const alert = $(`
                     <div class="alert alert-${type} alert-dismissible fade show" role="alert">
@@ -452,5 +470,6 @@
                 }
             };
         });
+         
     </script>
 }

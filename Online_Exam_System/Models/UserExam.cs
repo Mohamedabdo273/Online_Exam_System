@@ -19,8 +19,8 @@ namespace Models.Models
         public ApplicationUser? User { get; set; }
         [ValidateNever]
         public Exam? Exam { get; set; }
-        [ValidateNever]
-        public ICollection<UserAnswer>? UserAnswers { get; set; }
+        
+        public List<UserAnswer>? UserAnswers { get; set; }
     }
 
 }

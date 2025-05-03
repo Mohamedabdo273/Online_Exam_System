@@ -11,6 +11,7 @@ namespace infrastructures.UnitOfWork
     public class UnitOfWork : IUnitOfWork
     {
         private readonly ApplicationDbContext _context;
+        private IDbContextTransaction _transaction;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -27,9 +28,27 @@ namespace infrastructures.UnitOfWork
         public IQuestionRepository QuestionRepository { get; set; }
         public IUserAnswerRepository UserAnswerRepository { get; set; }
         public IUserExamRepository UserExamRepository { get; set; }
+       
+        public async Task CommitTransactionAsync()
+        {
+            await _transaction.CommitAsync();
+            _transaction = null;
+        }
 
+        public async Task RollbackTransactionAsync()
+        {
+            if (_transaction != null)
+            {
+                await _transaction.RollbackAsync();
+                _transaction = null;
+            }
+        }
+
+        public async Task CompleteAsync()
+        {
+            await _context.SaveChangesAsync();
+        }
         public int Complete() => _context.SaveChanges();
-        public Task CompleteAsync() => _context.SaveChangesAsync();
         public Task<IDbContextTransaction> BeginTransactionAsync() => _context.Database.BeginTransactionAsync();
         public void Dispose() => _context.Dispose();
     }

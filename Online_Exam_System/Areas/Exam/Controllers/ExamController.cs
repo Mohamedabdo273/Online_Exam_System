@@ -51,13 +51,27 @@ namespace YourNamespace.Areas.Exam.Controllers
         // GET: Exam/Exam/TakeExam/5
         public async Task<IActionResult> TakeExam(int id)
         {
-
             var exam = await _examService.GetByIdAsync(id);
             if (exam == null)
             {
                 return NotFound();
             }
-            var UserId = _userManager.GetUserId(User);
+
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return RedirectToAction("Login", "Account", new { area = "Identity" });
+            }
+
+            var existingUserExam = (await _userExamService.GetAllAsync())
+                .FirstOrDefault(ue => ue.ExamId == id && ue.UserId == userId);
+
+            if (existingUserExam != null)
+            {
+                TempData["ErrorMessage"] = "You have already taken this exam.";
+                return RedirectToAction("ExamDetails", new { id = existingUserExam.Id });
+            }
+
             var questions = await _questionService.GetByExamIdAsync(id);
             if (!questions?.Any() ?? true)
             {
@@ -68,7 +82,7 @@ namespace YourNamespace.Areas.Exam.Controllers
             ViewBag.ExamId = exam.Id;
             ViewBag.ExamTitle = exam.Title;
             ViewBag.Duration = exam.DurationInMinutes;
-            ViewBag.UserId = UserId;
+            ViewBag.UserId = userId;
 
             return View(questions.OrderBy(q => q.Id).ToList());
         }
@@ -288,7 +302,7 @@ namespace YourNamespace.Areas.Exam.Controllers
         // GET: Exam/Exam/UserResults
         public async Task<IActionResult> UserResults()
         {
-            var userId = User.Identity.Name;
+            var userId = _userManager.GetUserId(User);
             var userExams = (await _userExamService.GetAllAsync())
                 .Where(ue => ue.UserId == userId)
                 .OrderByDescending(ue => ue.TakenAt)
@@ -300,7 +314,7 @@ namespace YourNamespace.Areas.Exam.Controllers
         // GET: Exam/Exam/ExamDetails/5
         public async Task<IActionResult> ExamDetails(int id)
         {
-            var userId = User.Identity.Name;
+            var userId = _userManager.GetUserId(User);
             var userExam = (await _userExamService.GetAllAsync())
                 .FirstOrDefault(ue => ue.Id == id && ue.UserId == userId);
 
@@ -309,19 +323,41 @@ namespace YourNamespace.Areas.Exam.Controllers
                 return NotFound();
             }
 
+            // Get the exam with its questions and choices
+            var exam = await _examService.GetByIdAsync(userExam.ExamId);
+            if (exam == null)
+            {
+                return NotFound("Exam not found");
+            }
+
+            // Get all user answers for this exam with their related data
             var userAnswers = (await _userAnswerService.GetAllAsync())
                 .Where(ua => ua.UserExamId == userExam.Id)
                 .ToList();
 
-            var resultDetails = userAnswers.Select(ua => new
-            {
-                Question = ua.Question?.Title,
-                SelectedChoice = ua.SelectedChoice?.Text,
-                IsCorrect = ua.IsCorrect,
-                CorrectChoice = ua.Question?.Choices?.FirstOrDefault(c => c.IsCorrect)?.Text
-            });
+            // Get all questions for this exam with their choices
+            var questions = await _questionService.GetByExamIdAsync(userExam.ExamId);
 
-            ViewBag.ExamTitle = userExam.Exam?.Title;
+            // Create a detailed view model for each answer
+            var resultDetails = userAnswers.Select(ua =>
+            {
+                var question = questions.FirstOrDefault(q => q.Id == ua.QuestionId);
+                var selectedChoice = question?.Choices?.FirstOrDefault(c => c.Id == ua.SelectedChoiceId);
+                var correctChoice = question?.Choices?.FirstOrDefault(c => c.IsCorrect);
+
+                return new
+                {
+                    QuestionId = ua.QuestionId,
+                    QuestionText = question?.Title,
+                    SelectedChoiceId = ua.SelectedChoiceId,
+                    SelectedChoiceText = selectedChoice?.Text,
+                    IsCorrect = ua.IsCorrect,
+                    CorrectChoiceId = correctChoice?.Id,
+                    CorrectChoiceText = correctChoice?.Text
+                };
+            }).ToList();
+
+            ViewBag.ExamTitle = exam.Title;
             ViewBag.Score = userExam.Score;
             ViewBag.Passed = userExam.Passed;
             ViewBag.TakenAt = userExam.TakenAt;

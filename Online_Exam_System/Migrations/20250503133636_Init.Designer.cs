@@ -12,7 +12,7 @@ using infrastructure.Data;
 namespace Online_Exam_System.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250430203427_Init")]
+    [Migration("20250503133636_Init")]
     partial class Init
     {
         /// <inheritdoc />
@@ -241,7 +241,6 @@ namespace Online_Exam_System.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Text")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -263,9 +262,8 @@ namespace Online_Exam_System.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("DurationInMinutes")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<double>("DurationInMinutes")
+                        .HasColumnType("float");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -306,6 +304,9 @@ namespace Online_Exam_System.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("bit");
+
                     b.Property<int>("QuestionId")
                         .HasColumnType("int");
 
@@ -318,6 +319,10 @@ namespace Online_Exam_System.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("QuestionId");
+
+                    b.HasIndex("SelectedChoiceId");
+
+                    b.HasIndex("UserExamId");
 
                     b.ToTable("UserAnswers");
                 });
@@ -430,21 +435,21 @@ namespace Online_Exam_System.Migrations
 
             modelBuilder.Entity("Models.Models.UserAnswer", b =>
                 {
-                    b.HasOne("Models.Models.Choice", "SelectedChoice")
-                        .WithMany("UserAnswers")
-                        .HasForeignKey("QuestionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("Models.Models.Question", "Question")
                         .WithMany("userAnswers")
                         .HasForeignKey("QuestionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Models.Models.Choice", "SelectedChoice")
+                        .WithMany("UserAnswers")
+                        .HasForeignKey("SelectedChoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Models.Models.UserExam", "UserExam")
                         .WithMany("UserAnswers")
-                        .HasForeignKey("QuestionId")
+                        .HasForeignKey("UserExamId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

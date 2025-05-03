@@ -17,19 +17,25 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
         private readonly IChoiceService _choiceService;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<AdminController> _logger;
+        private readonly IUserExamService _userExamService;
+        private readonly IUserAnswerService _userAnswerService;
 
         public AdminController(
             IExamService examService,
             IQuestionService questionService,
             IChoiceService choiceService,
             UserManager<ApplicationUser> userManager,
-            ILogger<AdminController> logger)
+            ILogger<AdminController> logger,
+            IUserExamService userExamService,
+            IUserAnswerService userAnswerService)
         {
             _examService = examService;
             _questionService = questionService;
             _choiceService = choiceService;
             _userManager = userManager;
             _logger = logger;
+            _userExamService = userExamService;
+            _userAnswerService = userAnswerService;
         }
 
         // ========== Exams ==========
@@ -373,13 +379,11 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
 
                 var totalUsers = await query.CountAsync();
 
-                // First get the user data without roles
                 var users = await query
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                // Then get roles for each user
                 var userViewModels = new List<dynamic>();
                 foreach (var user in users)
                 {
@@ -447,27 +451,170 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                 var user = await _userManager.FindByIdAsync(id);
                 if (user == null)
                 {
-                    ModelState.AddModelError("", "User not found.");
-                    return NotFound();
+                    return Json(new { success = false, message = "User not found." });
+                }
+
+                // Check if user is an admin
+                if (await _userManager.IsInRoleAsync(user, "Admin"))
+                {
+                    return Json(new { success = false, message = "Cannot delete admin users." });
                 }
 
                 var result = await _userManager.DeleteAsync(user);
                 if (!result.Succeeded)
                 {
-                    foreach (var error in result.Errors)
-                    {
-                        ModelState.AddModelError("", error.Description);
-                    }
-                    return BadRequest(ModelState);
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    return Json(new { success = false, message = errors });
                 }
 
-                return RedirectToAction("GetAllUsers");
+                return Json(new { success = true, message = "User deleted successfully." });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting user {UserId}", id);
-                ModelState.AddModelError("", "An error occurred while deleting the user.");
-                return BadRequest(ModelState);
+                return Json(new { success = false, message = "An error occurred while deleting the user. Please try again later." });
+            }
+        }
+
+        public async Task<IActionResult> AllExamResults(int pageNumber = 1)
+        {
+            try
+            {
+                var pageSize = 10;
+                var userExams = (await _userExamService.GetAllAsync())
+                    .OrderByDescending(ue => ue.TakenAt)
+                    .ToList();
+
+                var totalItems = userExams.Count;
+                var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+                pageNumber = Math.Max(1, Math.Min(pageNumber, totalPages));
+
+                var paginatedResults = userExams
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+                var resultsWithUsers = new List<dynamic>();
+                foreach (var exam in paginatedResults)
+                {
+                    var user = await _userManager.FindByIdAsync(exam.UserId);
+                    var examDetails = await _examService.GetByIdAsync(exam.ExamId);
+
+                    resultsWithUsers.Add(new
+                    {
+                        UserExam = exam,
+                        UserName = user?.UserName ?? "Unknown",
+                        UserEmail = user?.Email ?? "Unknown",
+                        ExamTitle = examDetails?.Title ?? "Unknown Exam",
+                        Score = exam.Score,
+                        Passed = exam.Passed,
+                        TakenAt = exam.TakenAt
+                    });
+                }
+
+                ViewBag.CurrentPage = pageNumber;
+                ViewBag.TotalPages = totalPages;
+
+                return View(resultsWithUsers);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all exam results");
+                ModelState.AddModelError("", "An error occurred while retrieving exam results.");
+                return View(new List<dynamic>());
+            }
+        }
+
+        public async Task<IActionResult> UserExamDetails(int userExamId)
+        {
+            try
+            {
+                var userExam = await _userExamService.GetByIdAsync(userExamId);
+                if (userExam == null)
+                {
+                    return NotFound("Exam result not found");
+                }
+
+                var user = await _userManager.FindByIdAsync(userExam.UserId);
+                var exam = await _examService.GetByIdAsync(userExam.ExamId);
+                var questions = await _questionService.GetByExamIdAsync(userExam.ExamId);
+                var userAnswers = (await _userAnswerService.GetAllAsync())
+                    .Where(ua => ua.UserExamId == userExamId)
+                    .ToList();
+
+                var resultDetails = userAnswers.Select(ua =>
+                {
+                    var question = questions.FirstOrDefault(q => q.Id == ua.QuestionId);
+                    var selectedChoice = question?.Choices?.FirstOrDefault(c => c.Id == ua.SelectedChoiceId);
+                    var correctChoice = question?.Choices?.FirstOrDefault(c => c.IsCorrect);
+
+                    return new
+                    {
+                        QuestionId = ua.QuestionId,
+                        QuestionText = question?.Title,
+                        SelectedChoiceId = ua.SelectedChoiceId,
+                        SelectedChoiceText = selectedChoice?.Text,
+                        IsCorrect = ua.IsCorrect,
+                        CorrectChoiceId = correctChoice?.Id,
+                        CorrectChoiceText = correctChoice?.Text
+                    };
+                }).ToList();
+
+                ViewBag.UserName = user?.FullName ?? "Unknown";
+                ViewBag.UserEmail = user?.Email ?? "Unknown";
+                ViewBag.ExamTitle = exam?.Title ?? "Unknown Exam";
+                ViewBag.Score = userExam.Score;
+                ViewBag.Passed = userExam.Passed;
+                ViewBag.TakenAt = userExam.TakenAt;
+                ViewBag.ResultDetails = resultDetails;
+
+                return View();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user exam details");
+                ModelState.AddModelError("", "An error occurred while retrieving exam details.");
+                return View();
+            }
+        }
+
+        public async Task<IActionResult> UserExams(string userId)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    return NotFound("User not found");
+                }
+
+                var userExams = (await _userExamService.GetAllAsync())
+                    .Where(ue => ue.UserId == userId)
+                    .OrderByDescending(ue => ue.TakenAt)
+                    .ToList();
+
+                var resultsWithExams = new List<dynamic>();
+                foreach (var userExam in userExams)
+                {
+                    var exam = await _examService.GetByIdAsync(userExam.ExamId);
+                    resultsWithExams.Add(new
+                    {
+                        UserExam = userExam,
+                        ExamTitle = exam?.Title ?? "Unknown Exam",
+                        Score = userExam.Score,
+                        Passed = userExam.Passed,
+                        TakenAt = userExam.TakenAt
+                    });
+                }
+
+                ViewBag.UserName = user.UserName;
+                ViewBag.UserEmail = user.Email;
+                return View(resultsWithExams);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user exams for {UserId}", userId);
+                ModelState.AddModelError("", "An error occurred while retrieving user exams.");
+                return View(new List<dynamic>());
             }
         }
     }

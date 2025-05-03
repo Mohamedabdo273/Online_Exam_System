@@ -1,0 +1,106 @@
+@{
+    ViewData["Title"] = "User Exam Details";
+    Layout = "_Layout";
+}
+
+<div class="container exam-details-container">
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">@ViewBag.ExamTitle</h3>
+                <a href="@Url.Action("AllExamResults")" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Results
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>User:</strong> @ViewBag.UserName</p>
+                    <p><strong>Email:</strong> @ViewBag.UserEmail</p>
+                    <p><strong>Date Taken:</strong> @ViewBag.TakenAt.ToString("f")</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Score:</strong> <span class="badge @((bool)ViewBag.Passed ? "bg-success" : "bg-danger")">@ViewBag.Score.ToString("0.00")%</span></p>
+                    <p>
+                        <strong>Result:</strong>
+                        @if ((bool)ViewBag.Passed)
+                        {
+                            <span class="text-success">Passed <i class="fas fa-check-circle"></i></span>
+                        }
+                        else
+                        {
+                            <span class="text-danger">Failed <i class="fas fa-times-circle"></i></span>
+                        }
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mb-3">Question Details</h4>
+
+    <div class="accordion" id="questionsAccordion">
+        @{
+            var results = (IEnumerable<dynamic>)ViewBag.ResultDetails;
+            int questionNumber = 1;
+        }
+
+        @foreach (var result in results)
+        {
+            <div class="accordion-item mb-3">
+                <h2 class="accordion-header" id="heading@(questionNumber)">
+                    <button class="accordion-button @(result.IsCorrect ? "" : "collapsed")" type="button" data-bs-toggle="collapse" data-bs-target="#collapse@(questionNumber)" aria-expanded="@(result.IsCorrect ? "true" : "false")" aria-controls="collapse@(questionNumber)">
+                        <span class="me-2">Question @(questionNumber)</span>
+                        @if (result.IsCorrect)
+                        {
+                            <span class="badge bg-success me-2">Correct</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger me-2">Incorrect</span>
+                        }
+                        @result.QuestionText
+                    </button>
+                </h2>
+                <div id="collapse@(questionNumber)" class="accordion-collapse collapse @(result.IsCorrect ? "show" : "")" aria-labelledby="heading@(questionNumber)" data-bs-parent="#questionsAccordion">
+                    <div class="accordion-body">
+                        <p><strong>Your Answer:</strong> @result.SelectedChoiceText</p>
+                        <p><strong>Correct Answer:</strong> @result.CorrectChoiceText</p>
+                    </div>
+                </div>
+            </div>
+            questionNumber++;
+        }
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .exam-details-container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 1.5rem;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .accordion-button {
+            font-weight: 500;
+        }
+
+            .accordion-button:not(.collapsed) {
+                background-color: rgba(25, 135, 84, 0.1);
+            }
+
+        .accordion-body {
+            background-color: #f8f9fa;
+        }
+
+        .badge {
+            font-size: 0.9em;
+            padding: 0.35em 0.65em;
+        }
+    </style>
+} 

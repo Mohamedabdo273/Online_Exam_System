@@ -59,7 +59,7 @@ namespace Online_Exam_System.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    DurationInMinutes = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    DurationInMinutes = table.Column<double>(type: "float", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -228,7 +228,7 @@ namespace Online_Exam_System.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     QuestionId = table.Column<int>(type: "int", nullable: false),
-                    Text = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Text = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     IsCorrect = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
@@ -250,14 +250,15 @@ namespace Online_Exam_System.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     UserExamId = table.Column<int>(type: "int", nullable: false),
                     QuestionId = table.Column<int>(type: "int", nullable: false),
-                    SelectedChoiceId = table.Column<int>(type: "int", nullable: false)
+                    SelectedChoiceId = table.Column<int>(type: "int", nullable: false),
+                    IsCorrect = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_UserAnswers", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_UserAnswers_Choices_QuestionId",
-                        column: x => x.QuestionId,
+                        name: "FK_UserAnswers_Choices_SelectedChoiceId",
+                        column: x => x.SelectedChoiceId,
                         principalTable: "Choices",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -268,8 +269,8 @@ namespace Online_Exam_System.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_UserAnswers_UserExams_QuestionId",
-                        column: x => x.QuestionId,
+                        name: "FK_UserAnswers_UserExams_UserExamId",
+                        column: x => x.UserExamId,
                         principalTable: "UserExams",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -328,6 +329,16 @@ namespace Online_Exam_System.Migrations
                 name: "IX_UserAnswers_QuestionId",
                 table: "UserAnswers",
                 column: "QuestionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAnswers_SelectedChoiceId",
+                table: "UserAnswers",
+                column: "SelectedChoiceId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAnswers_UserExamId",
+                table: "UserAnswers",
+                column: "UserExamId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserExams_ExamId",

@@ -123,7 +123,6 @@
 @section Scripts {
     <script>
         $(document).ready(function() {
-            // Initialize DataTable
             if ($.fn.DataTable) {
                 $('#examsTable').DataTable({
                     responsive: true,
@@ -137,7 +136,6 @@
                 });
             }
 
-            // Delete Exam Confirmation
             let examIdToDelete = null;
             $('.delete-exam').click(function() {
                 examIdToDelete = $(this).data('exam-id');
@@ -164,7 +162,6 @@
                 $('#deleteExamModal').modal('hide');
             });
 
-            // Create Exam Form Submission - FIXED VERSION
             $('#createExamForm').on('submit', function(e) {
                 e.preventDefault();
                 var form = $(this);
@@ -203,4 +200,4 @@
         });
     </script>
 }
-}
+

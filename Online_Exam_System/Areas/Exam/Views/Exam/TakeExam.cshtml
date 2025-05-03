@@ -335,24 +335,10 @@
         }
     </style>
 }
-
 @section Scripts {
     <script>
-         document.getElementById("examForm").addEventListener("submit", function (e) {
-            const answers = {};
-
-            document.querySelectorAll(".question-card").forEach(card => {
-                const questionId = card.getAttribute("data-question-id");
-                const selectedOption = card.querySelector("input[type='radio']:checked");
-                if (selectedOption) {
-                    answers[questionId] = selectedOption.value;
-                }
-            });
-
-            document.getElementById("questionAnswers").value = JSON.stringify(answers);
-        });
         $(document).ready(function() {
-            // Timer initialization
+            let isSubmitting = false;
             let duration = @duration * 60;
             const timerElement = $('#timer');
             let timerInterval = setInterval(updateTimer, 1000);
@@ -362,7 +348,7 @@
                 const seconds = duration % 60;
                 timerElement.text(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
 
-                if (duration <= 300) {  // 5 minutes remaining
+                if (duration <= 300) {
                     timerElement.parent().addClass('time-warning');
                 }
 
@@ -377,13 +363,9 @@
             // Form submission handler
             $('#examForm').on('submit', function(e) {
                 e.preventDefault();
-
-                if (!validateForm()) {
-                    showAlert('Please answer all questions before submitting.', 'danger');
-                    return;
+                if (!isSubmitting) {
+                    submitExam();
                 }
-
-                submitExam();
             });
 
             function validateForm() {
@@ -399,55 +381,73 @@
                 });
                 return isValid;
             }
-           function submitExam() {
-            clearInterval(timerInterval);
-            $('input').prop('disabled', true);
-            const submitBtn = $('#submitExam');
-            submitBtn.html('<span class="spinner-border spinner-border-sm"></span> Submitting...')
-                   .prop('disabled', true);
 
-            // Collect answers
-            const answers = {};
-            $('.question-card').each(function() {
-                const questionId = $(this).data('question-id');
-                const selectedChoice = $(`input[name="questionAnswers[${questionId}]"]:checked`);
-                if (selectedChoice.length) {
-                    answers[questionId] = parseInt(selectedChoice.val());
+            function submitExam() {
+                if (!validateForm()) {
+                    showAlert('Please answer all questions before submitting.', 'danger');
+                    return;
                 }
-            });
 
-            // Prepare data for submission
-            const data = {
-                examId: $('#examForm input[name="examId"]').val(),
-                userId: $('#examForm input[name="userId"]').val(),
-                questionAnswers: JSON.stringify(answers)
-            };
+                isSubmitting = true;
+                clearInterval(timerInterval);
+                $('input').prop('disabled', true);
+                const submitBtn = $('#submitExam');
+                submitBtn.html('<span class="spinner-border spinner-border-sm"></span> Submitting...')
+                       .prop('disabled', true);
 
-            // Get anti-forgery token
-            const token = $('input[name="__RequestVerificationToken"]').val();
-
-            // Submit via AJAX
-            $.ajax({
-                url: $('#examForm').attr('action'),
-                type: 'POST',
-                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
-                data: $.param(data),
-                headers: {
-                    'RequestVerificationToken': token
-                },
-                success: function(response) {
-                    if (response.redirectUrl) {
-                        window.location.href = response.redirectUrl;
+                // Collect answers
+                const answers = {};
+                $('.question-card').each(function() {
+                    const questionId = $(this).data('question-id');
+                    const selectedChoice = $(`input[name="questionAnswers[${questionId}]"]:checked`);
+                    if (selectedChoice.length) {
+                        answers[questionId] = parseInt(selectedChoice.val());
                     }
-                },
-                error: function(xhr) {
-                    console.error('Error:', xhr.responseText);
-                    showAlert('Error submitting exam: ' + (xhr.responseJSON?.message || xhr.statusText), 'danger');
-                    $('input').prop('disabled', false);
-                    submitBtn.html('Submit Exam').prop('disabled', false);
-                }
-            });
-        }
+                });
+
+                // Prepare data for submission
+                const data = {
+                    examId: $('#examForm input[name="examId"]').val(),
+                    userId: $('#examForm input[name="userId"]').val(),
+                    questionAnswers: JSON.stringify(answers),
+                    __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+                };
+
+                // Submit via AJAX
+                $.ajax({
+                    url: $('#examForm').attr('action'),
+                    type: 'POST',
+                    data: data,
+                    success: function(response) {
+                        if (response.redirectUrl) {
+                            // Remove the beforeunload handler before redirecting
+                            $(window).off('beforeunload');
+                            window.location.href = response.redirectUrl;
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Error:', xhr.responseText);
+                        let errorMessage = 'Error submitting exam. ';
+                        try {
+                            const errorResponse = JSON.parse(xhr.responseText);
+                            errorMessage += errorResponse.message || '';
+                            if (errorResponse.error) {
+                                errorMessage += '\n' + errorResponse.error;
+                            }
+                            if (errorResponse.details) {
+                                errorMessage += '\n' + errorResponse.details;
+                            }
+                        } catch (e) {
+                            errorMessage += xhr.statusText;
+                        }
+                        showAlert(errorMessage, 'danger');
+                        $('input').prop('disabled', false);
+                        submitBtn.html('Submit Exam').prop('disabled', false);
+                        isSubmitting = false;
+                    }
+                });
+            }
+
             function showAlert(message, type) {
                 const alert = $(`
                     <div class="alert alert-${type} alert-dismissible fade show" role="alert">
@@ -464,12 +464,13 @@
             }
 
             // Prevent navigation during exam
-            window.onbeforeunload = function() {
-                if (duration > 0) {
-                    return 'You have an ongoing exam. Are you sure you want to leave?';
+            $(window).on('beforeunload', function(e) {
+                if (duration > 0 && !isSubmitting) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                    return '';
                 }
-            };
+            });
         });
-         
     </script>
 }

@@ -15,10 +15,10 @@ using Microsoft.AspNetCore.Identity;
 namespace YourNamespace.Areas.Exam.Controllers
 {
     [Area("Exam")]
-    [Authorize(Roles ="User")]
+    [Authorize(Roles = "User")]
     public class ExamController : Controller
     {
-        private readonly IExamService _examService;    
+        private readonly IExamService _examService;
         private readonly IQuestionService _questionService;
         private readonly IChoiceService _choiceService;
         private readonly IUserExamService _userExamService;
@@ -51,7 +51,7 @@ namespace YourNamespace.Areas.Exam.Controllers
         // GET: Exam/Exam/TakeExam/5
         public async Task<IActionResult> TakeExam(int id)
         {
-            
+
             var exam = await _examService.GetByIdAsync(id);
             if (exam == null)
             {
@@ -90,16 +90,16 @@ namespace YourNamespace.Areas.Exam.Controllers
             }
             catch (Exception ex)
             {
-                
+
                 return StatusCode(500, "Error loading exams data");
             }
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SubmitExam(
-    [FromForm] int examId,
-    [FromForm] string userId,
-    [FromForm] string questionAnswers)
+            [FromForm] int examId,
+            [FromForm] string userId,
+            [FromForm] string questionAnswers)
         {
             try
             {
@@ -117,56 +117,90 @@ namespace YourNamespace.Areas.Exam.Controllers
                     answers = JsonSerializer.Deserialize<Dictionary<int, int>>(questionAnswers)
                         ?? throw new JsonException("Deserialization returned null");
                 }
-                catch (JsonException)
+                catch (JsonException ex)
                 {
-                    return BadRequest("Invalid answer format");
+                    return BadRequest($"Invalid answer format: {ex.Message}");
                 }
 
                 var exam = await _examService.GetByIdAsync(examId);
                 if (exam == null) return NotFound("Exam not found");
 
-                var (correctAnswers, userAnswers) = ProcessAnswers(answers, exam.Questions ?? new List<Question>());
-                var totalQuestions = exam.Questions?.Count ?? 0;
+                // Get all questions with their choices
+                var questionsEnumerable = await _questionService.GetByExamIdAsync(examId);
+                if (questionsEnumerable == null || !questionsEnumerable.Any())
+                {
+                    return BadRequest("No questions found for this exam");
+                }
+
+                // Convert IEnumerable to List
+                var questions = questionsEnumerable.ToList();
+
+                var (correctAnswers, userAnswers) = ProcessAnswers(answers, questions);
+                var totalQuestions = questions.Count;
                 var percentageScore = totalQuestions > 0
                     ? Math.Round((correctAnswers / (double)totalQuestions) * 100, 2)
                     : 0;
 
+                // Create UserExam
                 var userExam = new UserExam
                 {
                     ExamId = examId,
                     UserId = userId,
                     TakenAt = DateTime.UtcNow,
                     Score = percentageScore,
-                    Passed = percentageScore >=  60,
-                    UserAnswers = userAnswers
+                    Passed = percentageScore >= 60,
+                    UserAnswers = new List<UserAnswer>() // Initialize the list
                 };
 
-                // Set navigation properties
-                foreach (var answer in userAnswers)
+                try
                 {
-                    answer.UserExam = userExam;
-                    
-                }
-                        await _userExamService.CreateAsync(userExam);
-             
-                   
-                
+                    // Save the UserExam first to get its ID
+                    await _userExamService.CreateAsync(userExam);
 
-                return Json(new
+                    // Now that we have the UserExam ID, set it for each answer
+                    foreach (var answer in userAnswers)
+                    {
+                        answer.UserExamId = userExam.Id;
+                        // Add the answer to the UserExam's UserAnswers collection
+                        userExam.UserAnswers.Add(answer);
+                        // Save each answer
+                        await _userAnswerService.CreateAsync(answer);
+                    }
+
+                    return Json(new
+                    {
+                        redirectUrl = Url.Action("ExamResult", new { userExamId = userExam.Id }),
+                        status = "success"
+                    });
+                }
+                catch (Exception ex)
                 {
-                    redirectUrl = Url.Action("ExamResult", new { userExamId = userExam.Id }),
-                    status = "success"
-                });
+                    // If there's an error during saving, try to clean up
+                    if (userExam.Id > 0)
+                    {
+                        try
+                        {
+                            await _userExamService.DeleteAsync(userExam.Id);
+                        }
+                        catch { /* Ignore cleanup errors */ }
+                    }
+                    throw; // Re-throw the original exception
+                }
             }
             catch (Exception ex)
             {
                 // Log the error
-                return StatusCode(500, "An unexpected error occurred");
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while submitting the exam",
+                    error = ex.Message,
+                    details = ex.InnerException?.Message
+                });
             }
         }
         private (int correctAnswers, List<UserAnswer> userAnswers) ProcessAnswers(
-    Dictionary<int, int> submittedAnswers,
-    ICollection<Question> questions)
+            Dictionary<int, int> submittedAnswers,
+            ICollection<Question> questions)
         {
             int correctCount = 0;
             var answers = new List<UserAnswer>();
@@ -183,6 +217,7 @@ namespace YourNamespace.Areas.Exam.Controllers
                     continue;
                 }
 
+                // Find the selected choice in the question's choices
                 var selectedChoice = question.Choices?
                     .FirstOrDefault(c => c.Id == selectedChoiceId);
 
@@ -191,16 +226,23 @@ namespace YourNamespace.Areas.Exam.Controllers
                     continue;
                 }
 
-                var isCorrect = selectedChoice.IsCorrect;
+                // Get the correct choice for this question
+                var correctChoice = question.Choices?
+                    .FirstOrDefault(c => c.IsCorrect);
+
+                // Check if the selected choice is the correct one
+                var isCorrect = correctChoice != null && selectedChoice.Id == correctChoice.Id;
                 if (isCorrect) correctCount++;
 
-                answers.Add(new UserAnswer
+                // Create the user answer with proper relationships
+                var userAnswer = new UserAnswer
                 {
                     QuestionId = question.Id,
-                    SelectedChoiceId = selectedChoiceId,
-                    IsCorrect = isCorrect,
+                    SelectedChoiceId = selectedChoice.Id,
+                    IsCorrect = isCorrect
+                };
 
-                });
+                answers.Add(userAnswer);
             }
 
             return (correctCount, answers);
@@ -222,19 +264,26 @@ namespace YourNamespace.Areas.Exam.Controllers
                 return NotFound("Exam results not found");
             }
 
+            // Get the exam details
             var exam = await _examService.GetByIdAsync(userExam.ExamId) ?? new Models.Models.Exam { Title = "Unknown Exam" };
 
-            // Option 1: Using ViewBag only
+            // Get all user answers for this exam
+            var userAnswers = (await _userAnswerService.GetAllAsync())
+                .Where(ua => ua.UserExamId == userExamId)
+                .ToList();
+
+            // Calculate correct answers
+            var correctAnswers = userAnswers.Count(a => a.IsCorrect);
+            var totalQuestions = exam.Questions?.Count ?? 0;
+
             ViewBag.ExamTitle = exam.Title;
-            ViewBag.TotalQuestions = exam.Questions?.Count ?? 0;
-            ViewBag.CorrectAnswers = userExam.UserAnswers?.Count(a => a.IsCorrect) ?? 0;
+            ViewBag.TotalQuestions = totalQuestions;
+            ViewBag.CorrectAnswers = correctAnswers;
             ViewBag.Score = userExam.Score;
             ViewBag.Passed = userExam.Passed;
             ViewBag.ExamId = userExam.ExamId;
 
             return View();
-
-          
         }
         // GET: Exam/Exam/UserResults
         public async Task<IActionResult> UserResults()

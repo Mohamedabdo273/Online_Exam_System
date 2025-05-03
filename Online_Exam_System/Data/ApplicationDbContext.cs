@@ -13,8 +13,8 @@ namespace infrastructure.Data
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            :base(options)
-        {           
+            : base(options)
+        {
         }
         public DbSet<Exam> Exams { get; set; }
         public DbSet<Question> Questions { get; set; }
@@ -37,7 +37,7 @@ namespace infrastructure.Data
                 .HasForeignKey(c => c.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-           
+
 
             modelBuilder.Entity<UserExam>()
     .HasMany(ue => ue.UserAnswers)
@@ -52,13 +52,14 @@ namespace infrastructure.Data
             modelBuilder.Entity<UserAnswer>()
    .HasOne(ua => ua.UserExam)
    .WithMany(q => q.UserAnswers)
-   .HasForeignKey(ua => ua.QuestionId)
+   .HasForeignKey(ua => ua.UserExamId)
    .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<UserAnswer>()
   .HasOne(ua => ua.SelectedChoice)
   .WithMany(q => q.UserAnswers)
-  .HasForeignKey(ua => ua.QuestionId)
-  .OnDelete(DeleteBehavior.Restrict);// أو .NoAction
+  .HasForeignKey(ua => ua.SelectedChoiceId)
+  .OnDelete(DeleteBehavior.Restrict);
 
 
 

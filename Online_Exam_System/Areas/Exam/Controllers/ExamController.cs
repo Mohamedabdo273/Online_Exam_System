@@ -139,14 +139,13 @@ namespace YourNamespace.Areas.Exam.Controllers
                 var exam = await _examService.GetByIdAsync(examId);
                 if (exam == null) return NotFound("Exam not found");
 
-                // Get all questions with their choices
+               
                 var questionsEnumerable = await _questionService.GetByExamIdAsync(examId);
                 if (questionsEnumerable == null || !questionsEnumerable.Any())
                 {
                     return BadRequest("No questions found for this exam");
                 }
 
-                // Convert IEnumerable to List
                 var questions = questionsEnumerable.ToList();
 
                 var (correctAnswers, userAnswers) = ProcessAnswers(answers, questions);
@@ -155,7 +154,7 @@ namespace YourNamespace.Areas.Exam.Controllers
                     ? Math.Round((correctAnswers / (double)totalQuestions) * 100, 2)
                     : 0;
 
-                // Create UserExam
+                
                 var userExam = new UserExam
                 {
                     ExamId = examId,
@@ -163,21 +162,21 @@ namespace YourNamespace.Areas.Exam.Controllers
                     TakenAt = DateTime.UtcNow,
                     Score = percentageScore,
                     Passed = percentageScore >= 60,
-                    UserAnswers = new List<UserAnswer>() // Initialize the list
+                    UserAnswers = new List<UserAnswer>() 
                 };
 
                 try
                 {
-                    // Save the UserExam first to get its ID
+                    
                     await _userExamService.CreateAsync(userExam);
 
-                    // Now that we have the UserExam ID, set it for each answer
+                   
                     foreach (var answer in userAnswers)
                     {
                         answer.UserExamId = userExam.Id;
-                        // Add the answer to the UserExam's UserAnswers collection
+                        
                         userExam.UserAnswers.Add(answer);
-                        // Save each answer
+                        
                         await _userAnswerService.CreateAsync(answer);
                     }
 
@@ -189,21 +188,20 @@ namespace YourNamespace.Areas.Exam.Controllers
                 }
                 catch (Exception ex)
                 {
-                    // If there's an error during saving, try to clean up
+                    
                     if (userExam.Id > 0)
                     {
                         try
                         {
                             await _userExamService.DeleteAsync(userExam.Id);
                         }
-                        catch { /* Ignore cleanup errors */ }
+                        catch { }
                     }
-                    throw; // Re-throw the original exception
+                    throw; 
                 }
             }
             catch (Exception ex)
             {
-                // Log the error
                 return StatusCode(500, new
                 {
                     message = "An error occurred while submitting the exam",
@@ -231,7 +229,6 @@ namespace YourNamespace.Areas.Exam.Controllers
                     continue;
                 }
 
-                // Find the selected choice in the question's choices
                 var selectedChoice = question.Choices?
                     .FirstOrDefault(c => c.Id == selectedChoiceId);
 
@@ -240,15 +237,14 @@ namespace YourNamespace.Areas.Exam.Controllers
                     continue;
                 }
 
-                // Get the correct choice for this question
+             
                 var correctChoice = question.Choices?
                     .FirstOrDefault(c => c.IsCorrect);
 
-                // Check if the selected choice is the correct one
+               
                 var isCorrect = correctChoice != null && selectedChoice.Id == correctChoice.Id;
                 if (isCorrect) correctCount++;
 
-                // Create the user answer with proper relationships
                 var userAnswer = new UserAnswer
                 {
                     QuestionId = question.Id,
@@ -278,15 +274,14 @@ namespace YourNamespace.Areas.Exam.Controllers
                 return NotFound("Exam results not found");
             }
 
-            // Get the exam details
+         
             var exam = await _examService.GetByIdAsync(userExam.ExamId) ?? new Models.Models.Exam { Title = "Unknown Exam" };
 
-            // Get all user answers for this exam
+           
             var userAnswers = (await _userAnswerService.GetAllAsync())
                 .Where(ua => ua.UserExamId == userExamId)
                 .ToList();
 
-            // Calculate correct answers
             var correctAnswers = userAnswers.Count(a => a.IsCorrect);
             var totalQuestions = exam.Questions?.Count ?? 0;
 
@@ -323,22 +318,19 @@ namespace YourNamespace.Areas.Exam.Controllers
                 return NotFound();
             }
 
-            // Get the exam with its questions and choices
+           
             var exam = await _examService.GetByIdAsync(userExam.ExamId);
             if (exam == null)
             {
                 return NotFound("Exam not found");
             }
 
-            // Get all user answers for this exam with their related data
             var userAnswers = (await _userAnswerService.GetAllAsync())
                 .Where(ua => ua.UserExamId == userExam.Id)
                 .ToList();
 
-            // Get all questions for this exam with their choices
             var questions = await _questionService.GetByExamIdAsync(userExam.ExamId);
 
-            // Create a detailed view model for each answer
             var resultDetails = userAnswers.Select(ua =>
             {
                 var question = questions.FirstOrDefault(q => q.Id == ua.QuestionId);

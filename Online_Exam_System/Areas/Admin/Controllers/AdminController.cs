@@ -70,7 +70,7 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                     var allErrors = ModelState.Values.SelectMany(v => v.Errors);
                     foreach (var error in allErrors)
                     {
-                        Console.WriteLine(error.ErrorMessage); // مؤقتًا للعرض فقط
+                        Console.WriteLine(error.ErrorMessage); 
                     }
 
                     return View(exam);
@@ -132,12 +132,12 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                     return RedirectToAction("GetAllExams");
                 }
 
-                // Update only the properties you want to change
+                
                 existingExam.Title = exam.Title;
                 existingExam.Description = exam.Description;
                 existingExam.DurationInMinutes = exam.DurationInMinutes;
 
-                await _examService.UpdateAsync(existingExam); // Update the existing entity
+                await _examService.UpdateAsync(existingExam); 
 
                 TempData["SuccessMessage"] = "Exam updated successfully!";
                 return RedirectToAction("GetAllExams");
@@ -282,7 +282,7 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                     return RedirectToAction("GetQuestions", new { examId = question?.ExamId });
                 }
 
-                // Ensure we have at least 4 choices for the form
+               
                 while (question.Choices.Count < 4)
                 {
                     question.Choices.Add(new Choice());
@@ -454,7 +454,7 @@ namespace OnlineExamSystem.Areas.Admin.Controllers
                     return Json(new { success = false, message = "User not found." });
                 }
 
-                // Check if user is an admin
+           
                 if (await _userManager.IsInRoleAsync(user, "Admin"))
                 {
                     return Json(new { success = false, message = "Cannot delete admin users." });
